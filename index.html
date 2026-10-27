@@ -230,6 +230,24 @@ img { max-width: 100%; }
 .lmap.live { background: #ECE8E0; }
 .washi-tiles { filter: grayscale(.75) sepia(.12) brightness(1.06) contrast(.92); }
 .lmap .leaflet-control-attribution { font-size: 9px; background: rgba(255,255,255,.85); }
+
+.ro-btn { border: 1px solid var(--hair); background: transparent; border-radius: 16px; min-height: 32px; padding: 0 12px; font-size: 12.5px; color: var(--ink-soft); margin-left: auto; margin-right: 8px; }
+.ro-list { list-style: none; margin: 0; padding: 0; }
+.ro-row { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid var(--hair); background: var(--bg, #F8F6F1); }
+.ro-row:last-child { border-bottom: 1px solid var(--hair); }
+.ro-row.dragging { box-shadow: 0 6px 18px rgba(0,0,0,.12); position: relative; z-index: 5; }
+.grip { touch-action: none; cursor: grab; width: 40px; height: 44px; display: grid; place-items: center; color: var(--ink-soft); }
+.ro-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ro-txt b { font-family: var(--mincho); font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ro-txt span { font-size: 12px; color: var(--ink-soft); }
+.ro-ic { width: 40px; height: 40px; border-radius: 20px; border: 1px solid var(--hair); background: #fff; display: grid; place-items: center; color: var(--ink); }
+.ro-ic:disabled { opacity: .3; }
+.ro-ic[data-armed] { background: #C8402B; color: #fff; border-color: #C8402B; }
+.ro-hint { font-size: 12px; color: var(--ink-soft); margin: 10px 0 0; }
+.addp-btn { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 52px; margin-top: 4px; border: 1px dashed var(--hair); border-radius: 4px; background: transparent; color: var(--ink-soft); font-size: 14px; justify-content: center; }
+.addp { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding: 14px; border: 1px solid var(--hair); border-radius: 4px; background: var(--card, #fff); }
+.addp b { font-family: var(--mincho); font-size: 16px; }
+.addp input { min-height: 44px; border: 1px solid var(--hair); border-radius: 4px; padding: 0 12px; font-size: 16px; background: #fff; }
 </style>
 </head>
 <body>
@@ -690,7 +708,7 @@ function renderChecklist() {
 function placeMedia(k) { return media.filter(function (m) { return m.key === k; }).sort(function (a, b) { return a.takenAt - b.takenAt; }); }
 
 function buildPages(d, j) {
-  var p = d.places[j], k = d.short + '-' + j;
+  var p = d.places[j], k = p.k;
   var pm = placeMedia(k), used = {};
   var pages = [];
   (p[2] || []).forEach(function (idea, i) {
@@ -711,7 +729,7 @@ function mediaTitle(pg) {
 }
 
 function renderPlace(d, j) {
-  var p = d.places[j], k = d.short + '-' + j;
+  var p = d.places[j], k = p.k;
   var open = !!ui.open[k];
   var pages = buildPages(d, j);
   var pm = placeMedia(k);
@@ -743,7 +761,7 @@ function renderPlace(d, j) {
       }
       if (spot) {
         var gk = p[4] || k;
-        html += '<div class="face back"><a class="mini" href="' + esc(dirUrl(p, gk)) + '" target="_blank" rel="noopener" tabindex="-1" aria-label="Directions to ' + esc(p[0]) + ' in Google Maps">' + (GEO[gk] ? '<img src="maps/' + gk + '.jpg" alt="" class="mini-static"><div class="lmap" id="lm-' + k + '-' + i + '" data-geo="' + gk + '"></div>' : genMap(p[0], 240, 200)) + '</a>' +
+        html += '<div class="face back"><a class="mini" href="' + esc(dirUrl(p, gk)) + '" target="_blank" rel="noopener" tabindex="-1" aria-label="Directions to ' + esc(p[0]) + ' in Google Maps">' + (GEO[gk] ? (p.custom ? '' : '<img src="maps/' + gk + '.jpg" alt="" class="mini-static">') + '<div class="lmap" id="lm-' + k + '-' + i + '" data-geo="' + gk + '"></div>' : genMap(p[0], 240, 200)) + '</a>' +
           '<div class="back-txt"><b>' + esc(pg.idea) + '</b><span>' + esc(p[0]) + '</span></div>' +
           '<div class="back-row">' +
           '<button type="button" class="icon-btn" data-act="unflip" data-k="' + k + '" tabindex="-1" aria-label="Show the sketch">' + ICON.flip + '</button>' +
@@ -761,7 +779,7 @@ function renderPlace(d, j) {
 function layoutStage(k) {
   var stage = $('stage-' + k);
   if (!stage) return;
-  var parts = k.split('-'); var d = DAYS.find(function (x) { return x.short === parts[0]; }); var j = Number(parts[1]);
+  var parts = k.split('-'); var d = DAYS.find(function (x) { return x.short === parts[0]; }); var j = placeIdx(d, k); if (j < 0) return;
   var pages = buildPages(d, j);
   var last = pages.length - 1;
   var focus = Math.max(0, Math.min(last, ui.focus[k] || 0));
@@ -828,12 +846,33 @@ function renderMain() {
   if (!signedIn()) html += '<section class="signin"><b>Shared album</b><span>Sign in with the Google account the Japan 2026 folder is shared with. Everyone\'s photos and videos show up here.</span><button type="button" class="signin-btn" data-act="signin">Sign in with Google</button></section>';
   html += renderChecklist();
   html += '<section><div class="places-head"><h2>Places</h2>' +
-    (dm.length ? '<button type="button" class="save-day" data-act="save-day">' + ICON.down + 'Save ' + dm.length + ' to phone</button>' : '<span class="count">' + (dm.length ? dm.length + ' saved' : '') + '</span>') + '</div>';
-  d.places.forEach(function (p, j) { html += renderPlace(d, j); });
+    (signedIn() ? '<button type="button" class="ro-btn" data-act="reorder">' + (ui.reorder ? 'Done' : 'Rearrange') + '</button>' : '') +
+    (ui.reorder ? '' : dm.length ? '<button type="button" class="save-day" data-act="save-day">' + ICON.down + 'Save ' + dm.length + ' to phone</button>' : '<span class="count">' + (dm.length ? dm.length + ' saved' : '') + '</span>') + '</div>';
+  if (ui.reorder) {
+    html += '<ol class="ro-list" id="ro-list">';
+    d.places.forEach(function (p, j) {
+      html += '<li class="ro-row" data-k="' + p.k + '"><span class="grip" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 8h14M5 12h14M5 16h14"/></svg></span>' +
+        '<span class="ro-txt"><b>' + esc(p[0]) + '</b><span>' + esc(p[1]) + '</span></span>' +
+        (p.custom ? '<button type="button" class="ro-ic" data-act="rm-place" data-k="' + p.k + '" aria-label="Remove ' + esc(p[0]) + '"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>' : '') +
+        '<button type="button" class="ro-ic" data-act="mv" data-dir="-1" data-k="' + p.k + '"' + (j === 0 ? ' disabled' : '') + ' aria-label="Move up">' + ICON.left.replace('<svg', '<svg style="transform:rotate(90deg)"') + '</button>' +
+        '<button type="button" class="ro-ic" data-act="mv" data-dir="1" data-k="' + p.k + '"' + (j === d.places.length - 1 ? ' disabled' : '') + ' aria-label="Move down">' + ICON.left.replace('<svg', '<svg style="transform:rotate(-90deg)"') + '</button></li>';
+    });
+    html += '</ol><p class="ro-hint">Drag the handle or use the arrows. Everyone sees the new order.</p>';
+  } else {
+    d.places.forEach(function (p, j) { html += renderPlace(d, j); });
+    if (signedIn()) {
+      if (ui.addPlace) html += '<form class="addp" id="addp"><b>New place</b>' +
+        '<input id="addp-name" type="text" maxlength="60" required placeholder="Name, e.g. Ichiran Shibuya" aria-label="Place name">' +
+        '<input id="addp-note" type="text" maxlength="40" placeholder="Time or note, e.g. 19:00 dinner" aria-label="Time or note">' +
+        '<input id="addp-q" type="text" maxlength="500" placeholder="Google Maps link or address (optional)" aria-label="Google Maps link or address">' +
+        '<div class="cap-btns"><button type="button" data-act="addp-cancel">Cancel</button><button type="submit">Add</button></div></form>';
+      else html += '<button type="button" class="addp-btn" data-act="add-place"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add place</button>';
+    }
+  }
   html += '</section>';
   if (signedIn()) html += '<p class="who">Signed in' + (auth.me ? ' as ' + esc(auth.me.name || auth.me.email) : '') + '  \u00b7  <button type="button" class="link" data-act="signout">Sign out</button></p>';
   $('main').innerHTML = html;
-  d.places.forEach(function (p, j) { var k = d.short + '-' + j; if (ui.open[k]) layoutStage(k); });
+  if (!ui.reorder) d.places.forEach(function (p) { if (ui.open[p.k]) layoutStage(p.k); });
 }
 
 function renderAll() { renderHeader(); renderTabs(); renderMain(); }
@@ -917,6 +956,7 @@ function onSignedIn() {
   }).catch(function () {});
   loadChecklist();
   loadMedia();
+  loadPlaces();
 }
 
 /* ---------- personal checklist (each person's own, in their Drive app data) ---------- */
@@ -1016,6 +1056,7 @@ function ensureVideo(pageEl, m) {
 var LMAP = {}, here = null, geoWatch = null;
 function dirUrl(p, gk) {
   var g = gk && GEO[gk];
+  if (p.url && !g) return p.url;
   return g ? 'https://www.google.com/maps/dir/?api=1&destination=' + g[0] + ',' + g[1] : mapsUrl(p[3]);
 }
 function startGeo() {
@@ -1052,7 +1093,7 @@ function initLiveMap(el) {
 var pending = null;
 function openSheet(k, slot) {
   if (!signedIn()) { toast('Sign in first to add photos.'); return; }
-  var parts = k.split('-'); var d = DAYS.find(function (x) { return x.short === parts[0]; }); var p = d.places[Number(parts[1])];
+  var parts = k.split('-'); var d = DAYS.find(function (x) { return x.short === parts[0]; }); var p = d.places[placeIdx(d, k)]; if (!p) return;
   pending = { k: k, slot: slot };
   $('sheet-sub').textContent = p[0] + ' · ' + d.date;
   var idea = slot !== null && slot !== undefined ? p[2][slot] : '';
@@ -1207,7 +1248,7 @@ function uploadFiles(files) {
 });
 
 /* ---------- viewer ---------- */
-function placeOf(m) { var p = m.key.split('-'); var d = DAYS.find(function (x) { return x.short === p[0]; }); return d && d.places[Number(p[1])]; }
+function placeOf(m) { var p = m.key.split('-'); var d = DAYS.find(function (x) { return x.short === p[0]; }); return d && d.places[placeIdx(d, m.key)]; }
 function openLightbox(m, title) {
   ui.lb = m; ui.delArm = false;
   $('lb-title').textContent = title + (m.by ? '  ·  ' + m.by.split(' ')[0] : '');
@@ -1306,7 +1347,7 @@ document.addEventListener('click', function (e) {
   else if (act === 'page') {
     var i = Number(el.getAttribute('data-i'));
     if ((ui.focus[k] || 0) !== i) { ui.focus[k] = i; delete ui.flip[k]; ui.edit = null; layoutStage(k); return; }
-    var parts = k.split('-'); var d = DAYS.find(function (x) { return x.short === parts[0]; }); var p = d.places[Number(parts[1])];
+    var parts = k.split('-'); var d = DAYS.find(function (x) { return x.short === parts[0]; }); var p = d.places[placeIdx(d, k)]; if (!p) return;
     var pg = buildPages(d, Number(parts[1]))[i];
     if (pg.kind === 'add') openSheet(k, null);
     else if (pg.kind === 'idea') { if (p[3]) { ui.flip[k] = i; layoutStage(k); } else openSheet(k, pg.slot); }
@@ -1379,6 +1420,135 @@ document.addEventListener('keydown', function (e) {
 });
 
 /* ---------- boot ---------- */
+/* ---------- shared places (order + added places, in places.json in the folder) ---------- */
+var PLC = { days: {} }, plcId = null, plcBusy = false;
+var CUSTOM_IDEAS = ['The view', 'A detail', 'Us here'];
+IDEA_MOTIF['Us here'] = 'group';
+IDEA_NOTE['The view'] = 'The wide shot that sets the scene.';
+IDEA_NOTE['A detail'] = 'Something small you’d otherwise forget.';
+IDEA_NOTE['Us here'] = 'Whoever’s here, in the frame.';
+DAYS.forEach(function (d) { d.base = d.places.map(function (p, j) { p.k = d.short + '-' + j; return p; }); });
+function placeIdx(d, k) { for (var i = 0; i < d.places.length; i++) if (d.places[i].k === k) return i; return -1; }
+function applyPlaces() {
+  DAYS.forEach(function (d) {
+    var c = PLC.days[d.short] || {};
+    var all = d.base.concat((c.added || []).map(function (a) {
+      var p = [a.name, a.note || '', CUSTOM_IDEAS, a.q || a.name];
+      p.k = a.k; p.custom = true; p.url = a.url || ''; p.by = a.by || '';
+      if (a.lat != null) GEO[a.k] = [a.lat, a.lng];
+      return p;
+    }));
+    var nat = {}; all.forEach(function (p, i) { nat[p.k] = i; });
+    var ord = c.order || [];
+    var rank = function (p) { var i = ord.indexOf(p.k); return i < 0 ? 1000 + nat[p.k] : i; };
+    all.sort(function (x, y) { return rank(x) - rank(y); });
+    d.places = all;
+  });
+}
+(function () { try { var c = JSON.parse(localStorage.getItem('jj-places') || 'null'); if (c && c.days) PLC = c; } catch (e) {} })();
+applyPlaces();
+function fetchPlaces() {
+  var q = "'" + FOLDER + "' in parents and trashed=false and name='places.json'";
+  return gjson(API + '/files?' + qs({ q: q, fields: 'files(id)', orderBy: 'createdTime', supportsAllDrives: true, includeItemsFromAllDrives: true })).then(function (r) {
+    var f = r.files && r.files[0];
+    if (!f) { plcId = null; return { days: {} }; }
+    plcId = f.id;
+    return gjson(API + '/files/' + f.id + '?alt=media&supportsAllDrives=true').then(function (b) { return b && b.days ? b : { days: {} }; });
+  });
+}
+function loadPlaces() {
+  if (plcBusy) return;
+  fetchPlaces().then(function (b) {
+    if (plcBusy) return;
+    var changed = JSON.stringify(b) !== JSON.stringify(PLC);
+    PLC = b; lsSet('jj-places', JSON.stringify(PLC));
+    if (changed) { applyPlaces(); renderMain(); }
+  }).catch(function () {});
+}
+function changePlaces(mut) {
+  mut(PLC); applyPlaces(); lsSet('jj-places', JSON.stringify(PLC)); renderMain();
+  if (!signedIn()) return;
+  plcBusy = true;
+  fetchPlaces().then(function (b) {
+    mut(b); PLC = b;
+    var body = JSON.stringify(b);
+    if (plcId) return gfetch(UPAPI + '/files/' + plcId + '?uploadType=media&supportsAllDrives=true', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: body });
+    return multipart({ name: 'places.json', parents: [FOLDER], mimeType: 'application/json' }, new Blob([body], { type: 'application/json' })).then(function (f) { plcId = f.id; });
+  }).then(function () {
+    lsSet('jj-places', JSON.stringify(PLC)); applyPlaces(); renderMain();
+  }).catch(function (e) { toast(errText(e)); }).then(function () { plcBusy = false; });
+}
+function dayCfg(b, short) { return b.days[short] || (b.days[short] = {}); }
+function setOrder(short, keys) { changePlaces(function (b) { dayCfg(b, short).order = keys.slice(); }); }
+function parseLoc(s) {
+  s = (s || '').trim();
+  var m = s.match(/@(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/) || s.match(/[?&](?:q|query|destination|ll)=(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/) || s.match(/^(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)$/) || s.match(/!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)/);
+  return m ? [Number(m[1]), Number(m[2])] : null;
+}
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('[data-act]'); if (!b) return;
+  var act = b.getAttribute('data-act'), d = DAYS[ui.day];
+  if (act === 'reorder') { ui.reorder = !ui.reorder; ui.addPlace = false; renderMain(); }
+  else if (act === 'add-place') { ui.addPlace = true; renderMain(); var n = $('addp-name'); if (n) n.focus(); }
+  else if (act === 'addp-cancel') { ui.addPlace = false; renderMain(); }
+  else if (act === 'mv') {
+    var keys = d.places.map(function (p) { return p.k; }), i = keys.indexOf(b.getAttribute('data-k')), t = i + Number(b.getAttribute('data-dir'));
+    if (i < 0 || t < 0 || t >= keys.length) return;
+    keys.splice(t, 0, keys.splice(i, 1)[0]); setOrder(d.short, keys);
+    var again = document.querySelector('.ro-row[data-k="' + b.getAttribute('data-k') + '"] [data-act="mv"][data-dir="' + b.getAttribute('data-dir') + '"]'); if (again && !again.disabled) again.focus();
+  } else if (act === 'rm-place') {
+    var k = b.getAttribute('data-k'), p = d.places[placeIdx(d, k)]; if (!p) return;
+    var n2 = placeMedia(k).length;
+    if (!confirmArm(b, n2 ? 'Remove? ' + n2 + ' photo' + (n2 > 1 ? 's stay' : ' stays') + ' in Drive' : 'Tap again to remove')) return;
+    changePlaces(function (x) { var c = dayCfg(x, d.short); c.added = (c.added || []).filter(function (a) { return a.k !== k; }); if (c.order) c.order = c.order.filter(function (o) { return o !== k; }); });
+  }
+});
+function confirmArm(b, msg) {
+  if (b.getAttribute('data-armed')) return true;
+  b.setAttribute('data-armed', '1'); toast(msg);
+  setTimeout(function () { b.removeAttribute('data-armed'); }, 3000);
+  return false;
+}
+document.addEventListener('submit', function (e) {
+  if (e.target.id !== 'addp') return;
+  e.preventDefault();
+  var d = DAYS[ui.day], name = $('addp-name').value.trim(); if (!name) return;
+  var raw = $('addp-q').value.trim(), g = parseLoc(raw);
+  var a = { k: d.short + '-c' + Date.now().toString(36), name: name, note: $('addp-note').value.trim(), by: (auth.me && auth.me.name) || '' };
+  if (g) { a.lat = g[0]; a.lng = g[1]; }
+  if (/^https?:\/\//.test(raw)) a.url = raw; else if (raw && !g) a.q = raw;
+  ui.addPlace = false;
+  changePlaces(function (b) { var c = dayCfg(b, d.short); (c.added = c.added || []).push(a); if (c.order) c.order.push(a.k); });
+  toast('Added ' + name);
+});
+/* drag to reorder */
+(function () {
+  var drag = null;
+  document.addEventListener('pointerdown', function (e) {
+    var g = e.target.closest('.grip'); if (!g) return;
+    var row = g.closest('.ro-row'); drag = { row: row, id: e.pointerId };
+    row.classList.add('dragging'); try { g.setPointerCapture(e.pointerId); } catch (x) {}
+    e.preventDefault();
+  });
+  document.addEventListener('pointermove', function (e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var list = $('ro-list'); if (!list) return;
+    var rows = Array.prototype.filter.call(list.children, function (r) { return r !== drag.row; });
+    var before = null;
+    for (var i = 0; i < rows.length; i++) { var bx = rows[i].getBoundingClientRect(); if (e.clientY < bx.top + bx.height / 2) { before = rows[i]; break; } }
+    if (before !== drag.row.nextSibling) list.insertBefore(drag.row, before);
+  });
+  function end(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag.row.classList.remove('dragging'); drag = null;
+    var d = DAYS[ui.day], keys = Array.prototype.map.call($('ro-list').children, function (r) { return r.getAttribute('data-k'); });
+    if (keys.join() !== d.places.map(function (p) { return p.k; }).join()) setOrder(d.short, keys);
+  }
+  document.addEventListener('pointerup', end);
+  document.addEventListener('pointercancel', end);
+})();
+setInterval(function () { if (document.visibilityState === 'visible' && signedIn() && !ui.reorder) loadPlaces(); }, 45000);
+
 renderAll();
 if (signedIn()) onSignedIn();
 window.addEventListener('load', function () { initGis(); });
