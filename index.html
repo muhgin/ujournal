@@ -249,6 +249,18 @@ img { max-width: 100%; }
 .addp { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding: 14px; border: 1px solid var(--hair); border-radius: 4px; background: var(--card, #fff); }
 .addp b { font-family: var(--mincho); font-size: 16px; }
 .addp input { min-height: 44px; border: 1px solid var(--hair); border-radius: 4px; padding: 0 12px; font-size: 16px; background: #fff; }
+
+.cmts { position: absolute; left: 10px; right: 10px; bottom: 38px; z-index: 4; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; pointer-events: none; }
+.cm { max-width: 88%; background: rgba(255,255,255,.9); color: var(--ink); font-size: 12.5px; line-height: 1.35; padding: 5px 10px; border-radius: 12px 12px 12px 3px; box-shadow: 0 2px 8px rgba(0,0,0,.12); text-align: left; overflow-wrap: anywhere; transition: opacity .35s, transform .35s; }
+.cm b { font-weight: 700; margin-right: 5px; }
+.cm.out { opacity: 0; transform: translateY(-8px); }
+.cm.in { animation: cmIn .4s ease-out; }
+@keyframes cmIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .cm, .cm.in { transition: none; animation: none; } }
+.cmt-btn { position: relative; }
+.cmt-btn i { font-style: normal; font-size: 10px; font-weight: 700; margin-left: 2px; }
+.cmt-form { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.cmt-form input { min-height: 44px; border: 1px solid var(--hair); border-radius: 4px; padding: 0 12px; font-size: 16px; background: #fff; }
 </style>
 </head>
 <body>
@@ -806,10 +818,12 @@ function layoutStage(k) {
     if (isF) initLiveMap(el);
   });
   var pg = pages[focus], p = d.places[j];
+  paintComments(k, pg, focus);
   var cap = $('cap-' + k), nav = $('nav-' + k);
   if (!cap) return;
   var editing = pg.kind === 'media' && ui.edit === pg.m.id;
-  nav.classList.toggle('editing', editing);
+  var commenting = pg.kind === 'media' && ui.cmt === pg.m.id;
+  nav.classList.toggle('editing', editing || commenting);
   nav.querySelector('[data-act="prev"]').disabled = focus === 0;
   nav.querySelector('[data-act="next"]').disabled = focus === last;
   if (editing) {
@@ -818,6 +832,13 @@ function layoutStage(k) {
       '<textarea id="cap-note" rows="2" maxlength="160" aria-label="Note" placeholder="A line about this moment">' + esc(pg.m.note || '') + '</textarea>' +
       '<div class="cap-btns"><button type="button" data-act="cap-cancel" data-k="' + k + '">Cancel</button><button type="submit">Save</button></div></form>';
     var ti = $('cap-title'); if (ti) ti.focus();
+    return;
+  }
+  if (commenting) {
+    cap.outerHTML = '<form class="cmt-form" id="cap-' + k + '" data-k="' + k + '" data-id="' + esc(pg.m.id) + '">' +
+      '<input id="cmt-text" type="text" maxlength="200" aria-label="Comment" placeholder="Say something about this one" autocomplete="off">' +
+      '<div class="cap-btns"><button type="button" data-act="cmt-cancel" data-k="' + k + '">Cancel</button><button type="submit">Post</button></div></form>';
+    var ci = $('cmt-text'); if (ci) ci.focus();
     return;
   }
   if (cap.tagName === 'FORM') { cap.outerHTML = '<div class="cap" id="cap-' + k + '" aria-live="polite"></div>'; cap = $('cap-' + k); }
@@ -830,13 +851,14 @@ function layoutStage(k) {
     if (pg.m.mine) pen = '<button type="button" class="pen" data-act="cap-edit" data-k="' + k + '" data-id="' + esc(pg.m.id) + '" aria-label="Edit caption and note"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg></button>';
   }
   if (pg.kind === 'media' && pg.m.by) sub = 'by ' + pg.m.by.split(' ')[0] + '  \u00b7  ' + sub;
+  if (pg.kind === 'media' && signedIn()) { var cn = CMT[pg.m.id] ? CMT[pg.m.id].list.length : 0; pen += '<button type="button" class="pen cmt-btn" data-act="cmt-open" data-k="' + k + '" data-id="' + esc(pg.m.id) + '" aria-label="Comment' + (cn ? ', ' + cn + ' so far' : '') + '"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>' + (cn ? '<i>' + cn + '</i>' : '') + '</button>'; }
   cap.innerHTML = '<span class="cap-t"><b>' + esc(title) + '</b>' + pen + '</span><span>' + esc(sub) + '</span>';
 }
 
 function turnPage(k, step) {
   ui.focus[k] = (ui.focus[k] || 0) + step;
   delete ui.flip[k];
-  ui.edit = null;
+  ui.edit = null; ui.cmt = null;
   layoutStage(k);
 }
 
@@ -1421,6 +1443,78 @@ document.addEventListener('keydown', function (e) {
 });
 
 /* ---------- boot ---------- */
+/* ---------- comments (Drive's own comments on each photo) ---------- */
+var CMT = {}, cmtTimer = null, CUR = null;
+function firstName(n) { return String(n || 'Someone').split(' ')[0]; }
+function loadComments(m, force) {
+  var c = CMT[m.id];
+  if (c && !force && Date.now() - c.t < 30000) return Promise.resolve(c.list);
+  return gjson(API + '/files/' + m.id + '/comments?' + qs({ fields: 'comments(id,content,createdTime,deleted,author(displayName,me))', pageSize: 100 })).then(function (r) {
+    var list = (r.comments || []).filter(function (x) { return !x.deleted; }).sort(function (a, b) { return a.createdTime < b.createdTime ? -1 : 1; });
+    var old = CMT[m.id]; CMT[m.id] = { list: list, t: Date.now() };
+    return { list: list, changed: !old || JSON.stringify(old.list.map(function (x) { return x.id; })) !== JSON.stringify(list.map(function (x) { return x.id; })) };
+  });
+}
+function paintComments(k, pg, focus) {
+  document.querySelectorAll('.cmts').forEach(function (e) { if (!CUR || !pg || !pg.m || e.getAttribute('data-id') !== pg.m.id) e.remove(); });
+  var next = pg && pg.kind === 'media' && signedIn() ? { k: k, m: pg.m, i: focus } : null;
+  var same = CUR && next && CUR.m.id === next.m.id;
+  CUR = next;
+  if (!CUR) { clearInterval(cmtTimer); cmtTimer = null; return; }
+  if (!same || !document.querySelector('.cmts')) { clearInterval(cmtTimer); cmtTimer = null; if (CMT[pg.m.id]) drawComments(CMT[pg.m.id].list, true); }
+  var m = pg.m;
+  loadComments(m).then(function (r) { if (r && r.list && (r.changed || !document.querySelector('.cmts'))) { drawComments(r.list, true); refreshCap(); } }).catch(function () {});
+}
+function refreshCap() {
+  if (!CUR) return;
+  var cap = $('cap-' + CUR.k);
+  if (cap && cap.tagName !== 'FORM') layoutCapOnly(CUR.k);
+}
+function layoutCapOnly(k) { var keep = CUR; layoutStage(k); CUR = keep; }
+function drawComments(list, reset) {
+  if (!CUR) return;
+  var stage = $('stage-' + CUR.k); if (!stage) return;
+  var ph = stage.querySelector('.pg[data-i="' + CUR.i + '"] .ph'); if (!ph) return;
+  var box = ph.querySelector('.cmts');
+  if (!list.length) { if (box) box.remove(); clearInterval(cmtTimer); cmtTimer = null; return; }
+  if (!box) { box = document.createElement('div'); box.className = 'cmts'; box.setAttribute('aria-hidden', 'true'); box.setAttribute('data-id', CUR.m.id); ph.appendChild(box); }
+  var n = list.length, start = Math.max(0, n - 3);
+  function bubble(c, cls) { return '<div class="cm' + (cls || '') + '"><b>' + esc(firstName(c.author && c.author.displayName)) + '</b>' + esc(c.content) + '</div>'; }
+  function show(animate) {
+    var items = [];
+    for (var i = 0; i < Math.min(3, n); i++) items.push(list[(start + i) % n]);
+    box.innerHTML = items.map(function (c, i) { return bubble(c, animate && i === items.length - 1 ? ' in' : ''); }).join('');
+  }
+  if (reset) { clearInterval(cmtTimer); cmtTimer = null; }
+  show(false);
+  if (n > 3 && !cmtTimer) cmtTimer = setInterval(function () {
+    if (!box.isConnected) { clearInterval(cmtTimer); cmtTimer = null; return; }
+    var first = box.firstChild; if (first) first.classList.add('out');
+    setTimeout(function () { start = (start + 1) % n; show(true); }, 350);
+  }, 3800);
+}
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('[data-act]'); if (!b) return;
+  var act = b.getAttribute('data-act'), k = b.getAttribute('data-k');
+  if (act === 'cmt-open') { e.stopPropagation(); ui.cmt = b.getAttribute('data-id'); ui.edit = null; layoutStage(k); }
+  else if (act === 'cmt-cancel') { ui.cmt = null; layoutStage(k); }
+}, true);
+document.addEventListener('submit', function (e) {
+  if (!e.target.classList || !e.target.classList.contains('cmt-form')) return;
+  e.preventDefault();
+  var f = e.target, id = f.getAttribute('data-id'), k = f.getAttribute('data-k');
+  var text = ($('cmt-text').value || '').trim().slice(0, 200);
+  ui.cmt = null;
+  if (!text) { layoutStage(k); return; }
+  var temp = { id: 'tmp' + Date.now(), content: text, createdTime: new Date().toISOString(), author: { displayName: (auth.me && auth.me.name) || 'Me', me: true } };
+  var c = CMT[id] || (CMT[id] = { list: [], t: 0 }); c.list.push(temp);
+  CUR = null; layoutStage(k);
+  gjson(API + '/files/' + id + '/comments?' + qs({ fields: 'id,content,createdTime,author(displayName,me)' }), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: text }) })
+    .then(function (r) { var i = c.list.indexOf(temp); if (i >= 0) c.list[i] = r; c.t = Date.now(); })
+    .catch(function (e2) { c.list = c.list.filter(function (x) { return x !== temp; }); toast(errText(e2)); CUR = null; layoutStage(k); });
+});
+setInterval(function () { if (CUR && document.visibilityState === 'visible' && signedIn()) loadComments(CUR.m, true).then(function (r) { if (r.changed) { drawComments(r.list, true); refreshCap(); } }).catch(function () {}); }, 20000);
+
 /* ---------- shared places (order + added places, in places.json in the folder) ---------- */
 var PLC = { days: {} }, plcId = null, plcBusy = false;
 var CUSTOM_IDEAS = ['The view', 'A detail', 'Us here'];
