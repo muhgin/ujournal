@@ -1,0 +1,1389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Japan 2026 Journal</title>
+<meta name="theme-color" content="#F8F6F1">
+<meta name="description" content="Shared photo journal for the Japan 2026 trip">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+/* Layout: one phone-width journal column — washi paper, ink type, a vermilion seal used sparingly. Single light look by choice. */
+:root {
+  --paper: #F8F6F1;
+  --paper-deep: #EFECE5;
+  --card: #FFFFFF;
+  --ink: #1B1B1F;
+  --ink-soft: #5F5E66;
+  --ink-faint: #8A8890;
+  --hair: #E2DDD3;
+  --shu: #C8402B;        /* vermilion seal */
+  --shu-text: #A8331F;
+  --ai: #24407A;         /* indigo */
+  --ai-wash: #EDF0F5;
+  --ai-hair: #DCE3F0;
+  --sketch: #A3A09A;
+  --sketch-bg: #ECE9E4;
+  --mincho: 'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', Georgia, serif;
+  --gothic: 'Zen Kaku Gothic New', 'Hiragino Sans', 'Noto Sans JP', system-ui, sans-serif;
+  color-scheme: light;
+}
+html, body { background: var(--paper); color: var(--ink); }
+body { font-family: var(--gothic); font-size: 15px; -webkit-font-smoothing: antialiased; }
+button, input { font-family: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--ai); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+.app { max-width: 480px; margin: 0 auto; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); padding-block: 0 96px; }
+
+/* header */
+.top { padding-block: 20px 8px; display: flex; flex-direction: column; gap: 18px; border-bottom: 1px solid var(--hair); }
+.brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand-name { display: flex; align-items: baseline; gap: 8px; }
+.brand-name b { font-family: var(--mincho); font-size: 15px; letter-spacing: .2em; }
+.brand-name span { font-size: 11px; font-weight: 500; letter-spacing: .22em; color: var(--ink-soft); }
+.status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-soft); }
+.status i { width: 6px; height: 6px; border-radius: 6px; background: var(--shu); }
+.dateline { display: flex; gap: 16px; align-items: center; }
+.cal { width: 52px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-right: 16px; border-right: 1px solid var(--hair); }
+.cal .mon { font-family: var(--mincho); font-size: 12px; letter-spacing: .1em; color: var(--shu-text); }
+.cal .num { font-family: var(--mincho); font-size: 38px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
+.cal .seal { width: 22px; height: 22px; border-radius: 3px; background: var(--shu); color: #fff; font-family: var(--mincho); font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.day-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.eyebrow { font-size: 11px; font-weight: 500; letter-spacing: .18em; color: var(--ink-soft); text-transform: uppercase; }
+.day-info h1 { margin: 0; font-family: var(--mincho); font-size: 20px; font-weight: 700; line-height: 1.3; text-wrap: balance; }
+.meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--ink-soft); }
+.city { color: var(--ai); border: 1px solid #C9D2E4; padding: 1px 8px; border-radius: 2px; font-weight: 500; }
+.stay { display: flex; align-items: center; gap: 5px; min-width: 0; }
+
+.tabs { display: flex; gap: 2px; overflow-x: auto; margin: 0 -20px; padding: 0 14px; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { flex-shrink: 0; width: 46px; height: 74px; border: none; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 0; }
+.tab .wd { font-family: var(--mincho); font-size: 12px; color: #6E6C70; }
+.tab .n { font-family: var(--mincho); font-size: 17px; font-weight: 700; width: 32px; height: 32px; border-radius: 32px; display: flex; align-items: center; justify-content: center; transition: background .2s, color .2s; font-variant-numeric: tabular-nums; }
+.tab .dot { width: 4px; height: 4px; border-radius: 4px; background: transparent; }
+.tab.prep .n { color: var(--ink-soft); }
+.tab[aria-current="date"] .wd { color: var(--shu-text); }
+.tab[aria-current="date"] .n { background: var(--shu); color: #fff; }
+.tab.done .dot { background: var(--ai); }
+.depart { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 22px; }
+.depart span { writing-mode: vertical-rl; font-family: var(--mincho); font-size: 10px; letter-spacing: .2em; color: var(--shu-text); }
+.depart i { width: 1px; height: 14px; background: var(--hair); }
+
+main { display: flex; flex-direction: column; gap: 24px; padding-top: 16px; }
+
+/* checklist */
+.check { background: var(--ai-wash); border-radius: 4px; overflow: hidden; }
+.check-sum { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: transparent; border: none; text-align: left; min-height: 64px; }
+.ring { position: relative; width: 40px; height: 40px; flex-shrink: 0; }
+.ring svg { transform: rotate(-90deg); display: block; }
+.ring span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--ai); font-variant-numeric: tabular-nums; }
+.check-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.check-txt b { font-size: 12px; letter-spacing: .08em; color: var(--ai); }
+.check-txt span { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chev { width: 32px; height: 32px; border-radius: 16px; background: var(--card); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform .2s; color: var(--ai); }
+.open > .check-sum .chev { transform: rotate(180deg); }
+.check-body { padding: 0 14px 8px; }
+.check ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ai-hair); }
+.check li { display: flex; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid var(--ai-hair); }
+.check input[type=checkbox] { width: 20px; height: 20px; margin: 0; accent-color: var(--ai); flex-shrink: 0; }
+.check label { flex: 1; min-width: 0; font-size: 15px; padding: 12px 0; cursor: pointer; }
+.check li.is-done label { color: var(--ink-faint); text-decoration: line-through; }
+.opt { font-size: 11px; color: #4A5878; border: 1px solid #C9D2E4; border-radius: 4px; padding: 2px 6px; flex-shrink: 0; }
+.rm { width: 44px; height: 44px; border: none; background: transparent; color: var(--ink-faint); display: flex; align-items: center; justify-content: center; margin-right: -12px; }
+.add-task { display: flex; align-items: center; gap: 10px; min-height: 48px; }
+.add-task svg { color: var(--ai); flex-shrink: 0; }
+.add-task input { flex: 1; min-width: 0; border: none; background: transparent; font-size: 15px; padding: 12px 0; }
+.add-task input::placeholder { color: #4A5878; }
+
+/* places */
+.places-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 10px; }
+.places-head h2 { margin: 0; font-family: var(--mincho); font-size: 18px; letter-spacing: .04em; }
+.save-day { border: none; background: transparent; color: var(--ink-soft); font-size: 12px; letter-spacing: .06em; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; }
+.place { border-top: 1px solid var(--hair); }
+.place:last-child { border-bottom: 1px solid var(--hair); }
+.place-head { width: 100%; display: flex; align-items: center; gap: 14px; padding: 14px 0; background: transparent; border: none; text-align: left; min-height: 72px; }
+.fan { position: relative; width: 54px; height: 48px; flex-shrink: 0; }
+.fan > span { position: absolute; top: 4px; width: 36px; height: 40px; box-sizing: border-box; border-radius: 2px; border: 3px solid #fff; border-bottom-width: 7px; box-shadow: 0 1px 2px rgba(27,27,31,.14); display: flex; align-items: center; justify-content: center; background: var(--sketch-bg); overflow: hidden; }
+.fan > span:nth-child(1) { left: 16px; transform: rotate(6deg); z-index: 3; }
+.fan > span:nth-child(2) { left: 9px; transform: rotate(-3deg); z-index: 2; }
+.fan > span:nth-child(3) { left: 2px; transform: rotate(-11deg); z-index: 1; }
+.fan img, .fan video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.place-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.place-txt b { font-family: var(--mincho); font-size: 16px; }
+.place-txt span { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--ink-soft); }
+.count { font-size: 12.5px; color: var(--ink-soft); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.place-head .arrow { display: flex; transition: transform .2s; color: var(--ink-soft); }
+.place.is-open .place-head .arrow { transform: rotate(180deg); }
+.panel { padding-bottom: 14px; display: flex; flex-direction: column; gap: 10px; }
+
+.stage { --pw: min(344px, 82vw); position: relative; height: calc(var(--pw) * 1.25); perspective: 1100px; overflow: hidden; background: transparent; }
+.pg { position: absolute; top: 0; left: 50%; width: var(--pw); height: calc(var(--pw) * 1.25); margin-left: calc(var(--pw) / -2); transform-style: preserve-3d; transition: transform .4s ease, opacity .4s ease; }
+.pg.playing .play { opacity: 0; }
+.play { transition: opacity .3s; }
+.pg-in { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .55s ease; }
+.pg.flipped .pg-in { transform: rotateY(180deg); }
+.face { position: absolute; inset: 0; box-sizing: border-box; border-radius: 4px; backface-visibility: hidden; -webkit-backface-visibility: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 0; box-shadow: 0 1px 3px rgba(27,27,31,.10); overflow: hidden; }
+.front { background: var(--sketch-bg); padding: 0; justify-content: flex-start; gap: 0; border: none; box-shadow: 0 2px 10px rgba(27,27,31,.16); }
+.front .ph svg { width: 56%; height: auto; }
+.front .play svg { width: 22px; }
+.hanko { position: absolute; right: 2px; bottom: 2px; z-index: 3; width: 17px; height: 17px; border-radius: 2px; background: var(--shu); color: #fff; font-family: var(--mincho); font-size: 10px; font-weight: 700; line-height: 1; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1.5px #FBF9F4; }
+.front .badge { position: absolute; right: 10px; top: 10px; z-index: 2; width: 22px; height: 22px; border-radius: 11px; background: rgba(255,255,255,.92); color: var(--shu-text); display: flex; align-items: center; justify-content: center; }
+.keep { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; }
+.keep input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--shu); flex-shrink: 0; }
+.keep span { display: flex; flex-direction: column; gap: 2px; }
+.keep small { font-size: 12px; color: var(--ink-soft); }
+.front .ph { flex: 1; width: 100%; position: relative; background: var(--sketch-bg); color: var(--sketch); display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 1px; }
+.front img, .front video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.front .play { position: relative; width: 52px; height: 52px; border-radius: 26px; background: rgba(27,27,31,.35); display: flex; align-items: center; justify-content: center; }
+.pcap { height: 32px; width: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 0 4px; font-family: var(--mincho); font-size: 12.5px; font-weight: 700; color: var(--ink); }
+.pcap em { font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pcap .pin { color: var(--shu-text); display: flex; flex-shrink: 0; }
+.front.add { padding: 0; justify-content: center; gap: 12px; border: 1.5px dashed #C9C4BC; background: rgba(255,255,255,.6); color: var(--shu-text); font-size: 13px; font-weight: 700; }
+.stage { touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.stage img, .stage video { -webkit-user-drag: none; pointer-events: none; }
+.back { transform: rotateY(180deg); background: #fff; border: 8px solid #fff; justify-content: flex-start; gap: 8px; }
+.mini { width: 100%; flex: 1; min-height: 0; border-radius: 2px; overflow: hidden; background: #ECE8E0; position: relative; display: block; }
+.mini-go { position: absolute; right: 6px; top: 6px; width: 30px; height: 30px; border-radius: 15px; background: #fff; color: var(--ink); display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(27,27,31,.2); }
+.mini svg { display: block; width: 100%; height: 100%; }
+.back-txt { width: 100%; display: flex; flex-direction: column; gap: 2px; text-align: left; }
+.back-txt b { font-family: var(--mincho); font-size: 13.5px; line-height: 1.25; }
+.back-txt span { font-size: 11.5px; color: var(--ink-soft); }
+.back-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 6px; width: 100%; margin-top: auto; }
+.back-map { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; border: 1px solid var(--hair); border-radius: 3px; color: var(--ink); text-decoration: none; font-size: 13px; font-weight: 500; }
+.icon-btn { width: 44px; height: 44px; border: 1px solid var(--hair); border-radius: 3px; background: transparent; display: flex; align-items: center; justify-content: center; }
+.shoot { min-height: 44px; border: none; border-radius: 3px; background: var(--shu); color: #fff; font-size: 14px; font-weight: 700; }
+
+.flip-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 6px; }
+.nav-btn { width: 44px; height: 44px; border-radius: 22px; border: 1px solid var(--hair); background: transparent; display: flex; align-items: center; justify-content: center; color: var(--ink); }
+.nav-btn:disabled { color: #C9C4BC; cursor: default; }
+.cap { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; min-height: 52px; justify-content: center; }
+.cap-t { display: flex; align-items: center; justify-content: center; gap: 2px; max-width: 100%; }
+.cap-t b { font-family: var(--mincho); font-size: 15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cap > span { font-size: 12.5px; line-height: 1.45; color: var(--ink-soft); text-wrap: balance; }
+.pen { width: 36px; height: 36px; margin: -4px -8px -4px 0; border: none; background: transparent; color: var(--ink-soft); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.cap-form { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.cap-form input, .cap-form textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--hair); border-radius: 3px; background: var(--card); padding: 8px 10px; font-size: 14px; resize: none; }
+.cap-form input { font-family: var(--mincho); font-weight: 700; }
+.cap-form textarea { font-size: 13px; line-height: 1.4; }
+.cap-btns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.cap-btns button { min-height: 40px; border-radius: 3px; border: 1px solid var(--hair); background: transparent; font-size: 14px; }
+.cap-btns button[type=submit] { background: var(--ink); border-color: var(--ink); color: #fff; font-weight: 700; }
+.flip-nav.editing .nav-btn { display: none; }
+
+/* overlays */
+.scrim { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; justify-content: flex-end; }
+.scrim-bg { position: absolute; inset: 0; background: rgba(27,27,31,.42); border: none; }
+.sheet { position: relative; background: var(--card); border-radius: 6px 6px 0 0; padding: 10px max(20px, env(safe-area-inset-right, 0px)) calc(28px + env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; gap: 16px; max-width: 480px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+.grip { width: 40px; height: 4px; border-radius: 4px; background: #D8D4CD; align-self: center; }
+.sheet h3 { margin: 0; font-family: var(--mincho); font-size: 18px; }
+.sheet .sub { font-size: 13px; color: var(--ink-soft); }
+.idea-chip { align-self: flex-start; font-size: 12.5px; background: var(--paper-deep); padding: 5px 10px; border-radius: 3px; }
+.opts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.opt-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 14px 6px; border-radius: 4px; border: 1px solid var(--hair); background: var(--card); min-height: 108px; font-size: 13px; font-weight: 700; text-align: center; }
+.opt-btn svg { width: 38px; height: 38px; }
+.opt-btn.primary { background: var(--shu); border-color: var(--shu); color: #fff; }
+.limit { font-size: 12px; color: var(--ink-soft); }
+
+.lightbox { position: fixed; inset: 0; z-index: 40; background: #121214; display: flex; flex-direction: column; color: #fff; }
+.lb-top { display: flex; align-items: center; gap: 8px; padding: calc(10px + env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); }
+.lb-icons { display: flex; gap: 6px; flex-shrink: 0; }
+.lb-ic { width: 44px; height: 44px; border-radius: 22px; border: none; background: rgba(255,255,255,.10); color: #fff; display: flex; align-items: center; justify-content: center; text-decoration: none; transition: background .2s; }
+.lb-ic.armed { background: var(--shu); }
+.lb-close { position: fixed; right: calc(18px + env(safe-area-inset-right, 0px)); bottom: calc(22px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; border-radius: 28px; border: none; background: #fff; color: #121214; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,.4); z-index: 2; }
+.lb-top b { flex: 1; min-width: 0; font-family: var(--mincho); font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lb-x { width: 44px; height: 44px; border: none; background: transparent; color: #fff; display: flex; align-items: center; justify-content: center; }
+.lb-media { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.lb-media img, .lb-media video { max-width: 100%; max-height: 100%; object-fit: contain; }
+.lb-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.lb-bar button { min-height: 48px; border-radius: 4px; border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff; font-size: 15px; font-weight: 500; }
+.lb-bar button.warn { border-color: #E07A66; color: #F3B2A4; }
+
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 50; width: min(440px, calc(100% - 40px)); background: var(--ink); color: #fff; border-radius: 4px; padding: 13px 16px; font-size: 14px; display: flex; align-items: center; gap: 10px; box-sizing: border-box; }
+.notice { font-size: 12.5px; color: var(--ink-soft); background: var(--paper-deep); padding: 10px 12px; border-radius: 3px; }
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+.signin { background: var(--card); border: 1px solid var(--hair); border-radius: 4px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.signin b { font-family: var(--mincho); font-size: 17px; }
+.signin span { font-size: 13.5px; color: var(--ink-soft); line-height: 1.5; }
+.signin-btn { align-self: flex-start; min-height: 44px; padding: 0 20px; border-radius: 22px; border: 1px solid var(--hair); background: #fff; font-size: 15px; font-weight: 500; }
+.who { font-size: 12px; color: var(--ink-soft); text-align: center; margin: 4px 0 0; }
+.link { border: none; background: none; color: var(--ai); font-size: 12px; padding: 10px 4px; text-decoration: underline; }
+.front .by { position: absolute; left: 10px; bottom: 10px; z-index: 3; font-size: 11px; font-weight: 700; color: #fff; background: rgba(27,27,31,.45); padding: 3px 8px; border-radius: 10px; }
+.front img.poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.front video { z-index: 1; opacity: 0; transition: opacity .3s; }
+.pg.playing .front video { opacity: 1; }
+.front .play { z-index: 2; }
+.lb-frame { width: 100%; height: 100%; border: 0; background: #000; }
+.mini .mini-static { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.lmap { position: absolute; inset: 0; pointer-events: none; background: transparent; z-index: 1; }
+.lmap.live { background: #ECE8E0; }
+.washi-tiles { filter: grayscale(.75) sepia(.12) brightness(1.06) contrast(.92); }
+.lmap .leaflet-control-attribution { font-size: 9px; background: rgba(255,255,255,.85); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="brand-name"><b>日本</b><span>JAPAN 2026</span></div>
+      <div class="status"><i></i><span id="countdown"></span></div>
+    </div>
+    <div class="dateline" id="dateline"></div>
+    <nav class="tabs" id="tabs" aria-label="Days"></nav>
+  </header>
+  <main id="main"></main>
+</div>
+
+<div class="scrim" id="sheet" hidden>
+  <button type="button" class="scrim-bg" data-act="close-sheet" aria-label="Close"></button>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="grip"></div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <h3 id="sheet-title">Add to album</h3>
+      <span class="sub" id="sheet-sub"></span>
+      <span class="idea-chip" id="sheet-idea" hidden></span>
+    </div>
+    <div class="opts">
+      <button type="button" class="opt-btn primary" data-act="pick" data-input="in-photo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5a2 2 0 0 1 2-2h2l1.6-2.2h5.8l1.6 2.2h2a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.8"/><circle cx="17.6" cy="9.4" r=".6" fill="currentColor"/></svg>
+        Photo
+      </button>
+      <button type="button" class="opt-btn" data-act="pick" data-input="in-video">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="13.5" height="12" rx="2"/><path d="M16 10.2l5.5-3.2v10l-5.5-3.2z"/><circle cx="6" cy="9.5" r="1.2" fill="#C8402B" stroke="none"/></svg>
+        Video
+      </button>
+      <button type="button" class="opt-btn" data-act="pick" data-input="in-gallery">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="3" width="15" height="13" rx="1.5"/><path d="M3 7v12.5A1.5 1.5 0 0 0 4.5 21H17"/><circle cx="10.5" cy="7.5" r="1.3"/><path d="M21 13l-4-4-7 7"/></svg>
+        Gallery
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-labelledby="lb-title">
+  <div class="lb-top">
+    <b id="lb-title"></b>
+    <div class="lb-icons">
+      <a class="lb-ic" id="lb-map" href="#" target="_blank" rel="noopener" aria-label="Open where this was taken in Google Maps"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></a>
+      <button type="button" class="lb-ic" data-act="lb-share" id="lb-share" aria-label="Share"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></svg></button>
+      <button type="button" class="lb-ic" data-act="lb-save" id="lb-save" aria-label="Save to phone"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></button>
+      <button type="button" class="lb-ic" data-act="lb-delete" id="lb-delete" aria-label="Delete"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>
+    </div>
+  </div>
+  <div class="lb-media" id="lb-media"></div>
+  <button type="button" class="lb-close" data-act="close-lb" aria-label="Close"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+</div>
+
+<div class="toast" id="toast" role="status" hidden>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+  <span id="toast-text"></span>
+</div>
+
+<input type="file" id="in-photo" accept="image/*" capture="environment" hidden>
+<input type="file" id="in-video" accept="video/*" capture="environment" hidden>
+<input type="file" id="in-gallery" accept="image/*,video/*" multiple hidden>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+(function () {
+'use strict';
+/* ---------- trip data ---------- */
+var DAYS = [
+  { short: 'D1', date: 'Tue 27 Oct', city: 'Tokyo', stay: 'Stay SAKURA Asakusa', title: 'Arrival day',
+    todos: [['Group: land at Narita 17:30, then on to Asakusa'], ['Group: set up the Day 1 Suica path'], ['Muhammad: at KLIA2 by 12:15 for D7 522'], ['Muhammad: Visit Japan Web QR ready'], ['Muhammad: Keikyu to Asakusa by 23:37'], ['Muhammad: room key from the group']],
+    places: [['KLIA Terminal 2', 'Muhammad departs 14:45', ['Departure board', 'Boarding pass', 'Gate selfie'], 'KLIA Terminal 2', 'D1-0'], ['Flight D7 522', 'KL to Haneda, 14:45 to 22:40', ['Window seat', 'In-flight meal', 'Tokyo lights below'], null], ['Group flight to Narita', 'Lands 17:30', ['Group at the gate', 'Window seat', 'First look at Japan'], null], ['Narita Airport', 'Group arrives 17:30', ['Arrivals hall', 'Narita Express', 'Group reunion'], 'Narita International Airport', 'NRT'], ['Haneda Airport T3', 'Muhammad lands 22:40', ['Welcome to Japan sign', 'Edo-style shop street', 'Keikyu platform'], 'Haneda Airport Terminal 3', 'D1-1'], ['Stay SAKURA Asakusa', 'Nights 1 to 3', ['Art deco lobby', 'Room view', 'Late-night Asakusa'], 'Stay SAKURA Tokyo Asakusa Art Deco Hotel', 'D1-2']] },
+  { short: 'D2', date: 'Wed 28 Oct', city: 'Tokyo', stay: 'Stay SAKURA Asakusa', title: 'Ginza shopping and Akihabara',
+    todos: [['Carry original passport for tax-free'], ['Ginza Line to Shimbashi, not Ginza'], ['Visit the G.Itoya vertical-farm café', 1]],
+    places: [['ASICS Tokyo Ginza', '11:00', ['Storefront', 'Shoe wall', 'New pair on foot'], 'ASICS Tokyo Ginza'], ['G.Itoya Ginza café', 'Optional', ['Vertical farm racks', 'Fresh greens close-up', 'Your drink'], 'G.Itoya Ginza'], ['UNIQLO Tokyo and GU', '13:30', ['Ginza façade', 'Tax-free haul', 'Group mirror shot'], 'UNIQLO TOKYO Marronnier Gate Ginza 2'], ['Akihabara', '16:45', ['Neon street at dusk', 'Yodobashi-Akiba', 'Arcade crane game'], 'Yodobashi Akiba']] },
+  { short: 'D3', date: 'Thu 29 Oct', city: 'Tokyo', stay: 'Stay SAKURA Asakusa', title: 'Photo day: Tsukiji to Shinjuku',
+    todos: [['Leave the hotel at 06:00'], ['Bring cash and halal soy sauce'], ['Decide on Shibuya Sky 13:20'], ['Book FEELCYCLE Shibuya', 1]],
+    places: [['Tsukiji Outer Market', '07:15', ['Market lanes at 07:30', 'Sushi breakfast', 'Fresh fish counter'], 'Tsukiji Outer Market'], ['Meiji Jingu', '10:00', ['Giant wooden torii', 'Sake barrel wall', 'Forest path'], 'Meiji Jingu'], ['Shibuya Crossing', '12:45', ['Crossing from above', 'Hachiko statue', 'Crowd in motion'], 'Shibuya Scramble Crossing'], ['Tocho South deck', 'Sunset 16:49', ['Sunset skyline', 'Blue hour city', 'Projection mapping'], 'Tokyo Metropolitan Government Building'], ['Omoide Yokocho', '18:20', ['Lantern alley', 'Grill smoke', 'Godzilla head'], 'Omoide Yokocho Shinjuku']] },
+  { short: 'D4', date: 'Fri 30 Oct', city: 'Fuji', stay: 'Mystays Fuji Onsen', title: 'Mount Fuji day',
+    todos: [['Bus 117 at Yaesu South by 10:20'], ['Get off at Fuji-Q Highland'], ['Pick up e-bikes at OSHI-KIKUYA'], ['Pay onsen tax ¥150 at check-in']],
+    places: [['Shimoyoshida Honcho Street', 'Afternoon ride', ['Fuji over the street', 'Retro shopfronts', 'E-bike pose'], 'Honcho Street Fujiyoshida'], ['Yagizaki Park', 'Lakeside', ['Fuji across the lake', 'Lakeside path', 'Golden-hour light'], 'Yagizaki Park Kawaguchiko'], ['Mystays onsen', 'Until 23:00', ['Onsen entrance', 'Yukata selfie', 'Fuji from the room'], 'Mystays Fuji Onsen Resort']] },
+  { short: 'D5', date: 'Sat 31 Oct', city: 'Fuji to Osaka', stay: 'Night bus 0101', title: 'Fuji sunrise to Osaka',
+    todos: [['Leave 05:15 with bike lights'], ['Leave bags at the Mystays desk'], ['Return e-bikes by 17:30'], ['Night bus 0101 at 21:01']],
+    places: [['Chureito Pagoda', 'Sunrise 06:04', ['Pagoda with Fuji', 'Sunrise sky', 'The 398 steps'], 'Chureito Pagoda'], ['Panorama Ropeway', '10:45', ['Cable car', 'Fuji from the top', 'Lake below'], 'Mt. Fuji Panorama Ropeway'], ['Appare cruise', '12:00', ['Ship at the pier', 'Fuji from the deck', 'Wake on the lake'], 'Lake Kawaguchi Sightseeing Boat Appare'], ['Oishi Park', '13:35', ['Flower hills with Fuji', 'Flower beds', 'Lakeshore'], 'Oishi Park Kawaguchiko']] },
+  { short: 'D6', date: 'Sun 1 Nov', city: 'Osaka', stay: 'Hotel Keihan Namba Grande', title: 'Osaka South',
+    todos: [['Leave bags at Hotel Keihan on arrival'], ['Keep tax-free buys sealed with receipts'], ['Ride at FEELCYCLE Shinsaibashi', 1]],
+    places: [['Dotonbori', 'Day', ['Running-man sign', 'Canal at night', 'Giant crab sign'], 'Dotonbori Osaka'], ['Namba', 'Day', ['Namba Parks terraces', 'Street food', 'Hotel window view'], 'Namba Parks'], ['Shinsaibashi', 'Day', ['Covered arcade', 'Shopping haul', 'FEELCYCLE studio'], 'Shinsaibashi-suji Shopping Street']] },
+  { short: 'D7', date: 'Mon 2 Nov', city: 'Osaka', stay: 'Hotel Keihan Namba Grande', title: 'Osaka North and wide',
+    todos: [['Buy Osaka Amazing Pass online'], ['Umeda Sky before 15:00'], ['Book Tsutenkaku slot at the counter']],
+    places: [['Umeda Sky Building', 'Morning', ['Floating Garden deck', 'Escalator tube', 'City panorama'], 'Umeda Sky Building'], ['Osaka Castle', 'Midday', ['Main keep', 'Moat and stone walls', 'Golden roof details'], 'Osaka Castle'], ['Den Den Town', 'Afternoon', ['Retro game shop', 'Figure displays', 'Street signs'], 'Den Den Town Osaka'], ['Shinsekai', 'Evening', ['Tsutenkaku tower', 'Neon street signs', 'Billiken statue'], 'Tsutenkaku Shinsekai']] },
+  { short: 'D8', date: 'Tue 3 Nov', city: 'Kyoto', stay: 'Mulan Stay Sagano', title: 'Kyoto move and Kyoto west',
+    todos: [['Leave Hotel Keihan at 09:35'], ['Reach Mulan after 10:30'], ['Find the door-code email'], ['Kyoto Botanical Gardens', 1]],
+    places: [['Arashiyama', 'Late morning', ['Togetsukyo Bridge', 'Bamboo grove', 'Hozu River'], 'Togetsukyo Bridge Arashiyama'], ['Kinkaku-ji', 'Closes 17:00', ['Pavilion reflection', 'Garden pond', 'Gold leaf close-up'], 'Kinkaku-ji'], ['Nishiki Market', 'Evening', ['Market arcade', 'Street snacks', 'Pickle stalls'], 'Nishiki Market Kyoto']] },
+  { short: 'D9', date: 'Wed 4 Nov', city: 'Kyoto', stay: 'Mulan Stay Sagano', title: 'Higashiyama, Gion and lanterns',
+    todos: [['Decide Yamato bag forwarding'], ['Tsukitouro tickets ready'], ['Book yoga at Studio Tamisa', 1]],
+    places: [['% Arabica Togetsukyo', '09:00', ['Latte by the river', 'Café front', 'Bridge view'], '% Arabica Kyoto Arashiyama'], ['Ninenzaka and Sannenzaka', 'Afternoon', ['Stone steps', 'Yasaka Pagoda', 'Old wooden shops'], 'Ninenzaka Kyoto'], ['Gion', '17:00', ['Hanamikoji lanes', 'Shirakawa canal', 'Lantern-lit dinner'], 'Hanamikoji Street Gion'], ['Arashiyama Tsukitouro', '19:15', ['Lit bamboo path', 'Lantern trail', 'Group at night'], 'Arashiyama Bamboo Grove']] },
+  { short: 'D10', date: 'Thu 5 Nov', city: 'Kyoto to Narita', stay: 'Narita Tobu Hotel', title: 'Kyoto to Narita',
+    todos: [['Check out of Mulan at 10:00'], ['Cases to Crosta Kyoto, B1'], ['Nozomi 410, 14:13, platform 11'], ['Finish souvenirs and pack']],
+    places: [['Fushimi Inari', '11:00', ['Senbon torii tunnel', 'Fox statues', 'Torii from below'], 'Fushimi Inari Taisha'], ['Kyoto Station', 'Lunch', ['Grand staircase', 'Kyoto Tower', 'Nozomi at platform 11'], 'Kyoto Station'], ['Tokyo Station', '16:24', ['Red-brick Marunouchi', 'Shinkansen arrival', 'Last group photo'], 'Tokyo Station Marunouchi Building']] },
+  { short: 'D11', date: 'Fri 6 Nov', city: 'Tokyo', stay: 'Flights home', title: 'Departure day',
+    todos: [['Group: 06:00 shuttle to Narita'], ['Group: flight home at 10:05'], ['Muhammad: check out by 11:00'], ['Muhammad: web check-in for D7 523'], ['Muhammad: Nami Yoga Akasaka', 1], ['Muhammad: at Haneda T3 by 20:30']],
+    places: [['Narita Airport', 'Group flies 10:05', ['Last shuttle ride', 'Narita departures', 'Bye, Japan'], 'Narita International Airport', 'NRT'], ['Group flight home', 'Leaves 10:05', ['Window seat', 'Last look at Japan', 'Home soon'], null], ['Nami Yoga Akasaka', 'Muhammad, optional', ['Studio space', 'Post-class glow', 'Akasaka street'], 'Nami Yoga Studio Akasaka', 'D11-0'], ['Haneda Airport T3', 'Muhammad, 20:30', ['Observation deck', 'Planes at night', 'Last meal in Japan'], 'Haneda Airport Terminal 3', 'D11-1'], ['Flight D7 523', 'Haneda to KL, 23:55', ['Night take-off', 'Window seat', 'Sunrise over home'], null]] }
+];
+var GEO = {"P2-1": [3.161014, 101.614536], "D1-0": [2.742851, 101.686418], "D1-1": [35.544994, 139.767034], "D1-2": [35.715, 139.792146], "D2-0": [35.669807, 139.76012], "D2-1": [35.672957, 139.767425], "D2-2": [35.673712, 139.765186], "D2-3": [35.698784, 139.774725], "D3-0": [35.665388, 139.770473], "D3-1": [35.674842, 139.699627], "D3-2": [35.659495, 139.700498], "D3-3": [35.689496, 139.691709], "D3-4": [35.693069, 139.699502], "D4-0": [35.497939, 138.803628], "D4-1": [35.512106, 138.755858], "D4-2": [35.491971, 138.780008], "D5-0": [35.501287, 138.801356], "D5-1": [35.50378, 138.774407], "D5-2": [35.503709, 138.768417], "D5-3": [35.52329, 138.746537], "D6-0": [34.669031, 135.501572], "D6-1": [34.661679, 135.502084], "D6-2": [34.674219, 135.501372], "D7-0": [34.705293, 135.490535], "D7-1": [34.687183, 135.525396], "D7-2": [34.659215, 135.505824], "D7-3": [34.652539, 135.50631], "D8-0": [35.012871, 135.677762], "D8-1": [35.039529, 135.729537], "D8-2": [35.005024, 135.76557], "D9-0": [35.013541, 135.676436], "D9-1": [34.998448, 135.78084], "D9-2": [35.00469, 135.778403], "D9-3": [35.016742, 135.671148], "D10-0": [34.967519, 135.77971], "D10-1": [34.98698, 135.758311], "D10-2": [35.681151, 139.765976], "D11-0": [35.677076, 139.736872], "D11-1": [35.544994, 139.767034], "P1-2": [3.193945, 101.682016], "NRT": [35.775871, 140.39331]};
+var TRIP_START = new Date(2026, 9, 27);
+var WD_JP = { Mon: '月', Tue: '火', Wed: '水', Thu: '木', Fri: '金', Sat: '土', Sun: '日' };
+var MON = { Oct: 9, Nov: 10 };
+var tripDays = DAYS.filter(function (d) { return !d.prep; }).length;
+var prepDays = DAYS.length - tripDays;
+
+var MOTIFS = {
+  torii: 'M6 12 Q24 8 42 12 M9 17 H39 M13 12 V42 M35 12 V42 M20 17 V22 H28 V17 M4 42 H44',
+  toriiRow: 'M4 10 Q12 8 20 10 M6 14 H18 M8 10 V42 M16 10 V42 M20 14 Q28 12 36 14 M22 17 H34 M24 14 V38 M32 14 V38 M34 18 Q40 17 46 18 M35 20 H45 M37 18 V34 M43 18 V34 M2 44 H46',
+  mountain: 'M4 40 L18 16 Q24 10 30 16 L44 40 Z M18 16 L21 20 L24 17 L27 20 L30 16 M8 10 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0',
+  lake: 'M8 28 L20 12 Q24 8 28 12 L40 28 Z M20 12 L22 15 L24 13 L26 15 L28 12 M4 34 Q10 32 16 34 T28 34 T40 34 T46 34 M8 40 Q14 38 20 40 T32 40 T44 40',
+  pagoda: 'M10 42 H38 M16 42 V36 H32 V42 M12 36 L24 31 L36 36 M15 31 H33 M13 31 L24 25 L35 31 M16 25 H32 M14 25 L24 19 L34 25 M24 19 V10',
+  pagodaFuji: 'M2 34 L12 18 Q16 14 20 18 L24 24 M20 42 H44 M23 42 V37 H41 V42 M19 37 L32 32 L45 37 M22 32 H42 M21 32 L32 26 L43 32 M24 26 H40 M22 26 L32 20 L42 26 M32 20 V14',
+  street: 'M4 42 H44 M6 42 V18 H18 V42 M18 42 V14 H30 V42 M30 42 V20 H42 V42 M9 22 H15 V27 H9 Z M21 18 H27 V24 H21 Z M33 24 H39 V29 H33 Z M10 34 H14 V42 M22 32 H26 V42 M34 34 H38 V42',
+  food: 'M8 24 H40 Q38 38 24 38 Q10 38 8 24 Z M18 38 L17 42 H31 L30 38 M14 20 Q16 16 20 18 M24 20 Q26 15 30 18 M34 6 L22 22 M40 8 L26 22',
+  sushi: 'M6 30 H42 V36 H6 Z M10 30 V24 Q16 20 22 24 V30 M26 30 V24 Q32 20 38 24 V30 M10 24 Q16 27 22 24 M26 24 Q32 27 38 24 M12 14 L36 8 M12 18 L36 12',
+  city: 'M4 42 H44 M6 42 V26 H12 V42 M12 42 V14 H20 V42 M20 42 V22 H26 V42 M26 42 V8 H34 V42 M34 42 V20 H42 V42 M15 18 H17 M15 24 H17 M15 30 H17 M29 12 H31 M29 18 H31 M29 24 H31 M29 30 H31',
+  sunset: 'M4 42 H44 M6 42 V28 H12 V42 M12 42 V20 H20 V42 M20 42 V26 H26 V42 M26 42 V16 H34 V42 M34 42 V24 H42 V42 M36 9 a5 5 0 1 0 10 0 a5 5 0 1 0 -10 0',
+  bridge: 'M2 30 H46 M2 30 Q12 20 24 30 Q36 20 46 30 M8 30 V38 M18 30 V38 M30 30 V38 M40 30 V38 M2 42 Q8 40 14 42 T26 42 T38 42 T46 42',
+  bamboo: 'M10 4 V44 M10 14 H13 M10 26 H13 M20 4 V44 M20 10 H23 M20 22 H23 M20 34 H23 M32 4 V44 M32 16 H35 M32 30 H35 M40 4 V44 M40 12 H43 M40 28 H43 M13 14 Q17 10 18 6 M23 22 Q28 18 29 12 M35 16 Q38 12 37 8',
+  lantern: 'M20 6 H28 M24 6 V10 M16 14 Q16 10 24 10 Q32 10 32 14 V32 Q32 36 24 36 Q16 36 16 32 Z M16 20 H32 M16 26 H32 M20 36 V40 H28 V36 M24 40 V44',
+  train: 'M4 34 H40 Q46 34 46 28 Q40 20 28 20 H4 Z M4 26 H34 M10 22 V26 M18 22 V26 M26 22 V26 M2 40 H46 M10 34 V38 M34 34 V38',
+  castle: 'M12 42 V30 H36 V42 M8 30 L14 24 H34 L40 30 M16 24 V18 H32 V24 M12 18 L18 12 H30 L36 18 M20 12 L24 6 L28 12 M22 36 H26 V42 M4 42 L8 36 H40 L44 42 Z',
+  cup: 'M12 18 H34 V30 Q34 38 23 38 Q12 38 12 30 Z M34 22 H38 Q42 22 42 26 Q42 30 38 30 H34 M8 42 H38 M18 12 Q16 9 18 6 M24 12 Q22 9 24 6 M30 12 Q28 9 30 6',
+  shop: 'M6 42 V18 H42 V42 M4 18 L8 10 H40 L44 18 Z M10 26 H24 V42 M28 26 H38 V34 H28 Z M6 42 H42',
+  person: 'M20 14 a5 5 0 1 0 10 0 a5 5 0 1 0 -10 0 M16 42 V30 Q16 24 25 24 Q34 24 34 30 V42 M34 28 L40 18 M38 12 H44 V20 H38 Z',
+  group: 'M8 18 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M5 36 Q5 26 12 26 Q19 26 19 36 M20 14 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M17 32 Q17 22 24 22 Q31 22 31 32 M32 18 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M29 36 Q29 26 36 26 Q43 26 43 36 M2 42 H46',
+  statue: 'M10 40 H38 V44 H10 Z M14 40 V28 Q14 24 18 24 H28 L30 16 Q31 12 35 12 L38 14 Q40 18 36 20 L34 30 V40 M34 13 L33 9 M20 32 V40 M28 32 V40',
+  boat: 'M6 32 H42 L36 40 H12 Z M14 32 V24 H32 V32 M18 24 V18 H28 V24 M2 44 Q8 42 14 44 T26 44 T38 44 T46 44',
+  stairs: 'M4 42 H12 V36 H18 V30 H24 V24 H30 V18 H36 V12 H44 M4 42 V44 H44 V12',
+  crossing: 'M4 20 H44 M4 28 H44 M10 20 V28 M16 20 V28 M22 20 V28 M28 20 V28 M34 20 V28 M40 20 V28 M20 4 V44 M28 4 V44 M20 10 H28 M20 16 H28 M20 34 H28 M20 40 H28',
+  plane: 'M4 26 L44 18 Q47 18 46 21 L8 30 Z M22 23 L16 10 H20 L30 21 M22 28 L20 36 H24 L30 26 M8 27 L4 20 H7 L12 25 M4 42 H44',
+  window: 'M8 8 H40 V36 H8 Z M24 8 V36 M8 22 H40 M4 42 H44 M12 32 L17 26 L22 32 M27 18 L31 13 L37 19',
+  flowers: 'M2 30 L12 16 Q16 12 20 16 L30 30 M4 44 Q12 34 24 36 Q36 34 44 44 M8 44 Q16 40 24 41 Q32 40 40 44',
+  cable: 'M2 8 L46 20 M24 14 V20 M14 20 H34 Q38 20 38 24 V32 Q38 36 34 36 H14 Q10 36 10 32 V24 Q10 20 14 20 Z M14 26 H34 M24 26 V36 M4 46 L16 40 L24 44 L36 38 L46 42',
+  tower: 'M18 44 L22 14 H26 L30 44 M14 44 H34 M20 30 H28 M21 22 H27 M20 14 H28 V10 H20 Z M24 10 V4',
+  claw: 'M10 4 H38 V44 H10 Z M10 30 H38 M14 34 H22 V40 H14 Z M24 8 V16 M20 16 H28 M20 16 L18 22 M28 16 L30 22 M28 36 H34',
+  bag: 'M10 16 H38 L36 44 H12 Z M18 16 V12 Q18 6 24 6 Q30 6 30 12 V16',
+  shoe: 'M4 34 V26 Q10 26 14 20 L18 22 Q24 28 34 28 Q44 28 44 34 Z M4 34 H44 V38 H4 Z M18 26 L22 22 M22 28 L26 24',
+  farm: 'M8 4 V44 M40 4 V44 M8 14 H40 M8 26 H40 M8 38 H40 M12 14 Q12 9 15 10 M18 14 Q19 8 22 10 M26 14 Q26 9 29 10 M32 14 Q33 8 36 10 M12 26 Q12 21 15 22 M18 26 Q19 20 22 22 M26 26 Q26 21 29 22 M32 26 Q33 20 36 22 M12 38 Q12 33 15 34 M20 38 Q21 32 24 34 M28 38 Q28 33 31 34 M34 38 Q35 32 38 34',
+  onsen: 'M6 36 Q24 46 42 36 Q42 30 24 30 Q6 30 6 36 Z M16 24 Q12 20 16 16 Q20 12 16 8 M24 24 Q20 20 24 16 Q28 12 24 8 M32 24 Q28 20 32 16 Q36 12 32 8',
+  bike: 'M4 32 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0 M30 32 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0 M11 32 L18 20 H32 L37 32 M18 20 L24 32 L32 20 M16 16 H21 M30 14 L32 20 M28 14 H34',
+  fish: 'M6 24 Q18 12 32 24 Q18 36 6 24 Z M32 24 L42 16 V32 Z M4 40 H44',
+  neon: 'M14 4 V44 M14 8 H34 V40 H14 M18 14 H30 M18 20 H30 M18 26 H26 M18 32 H30 M34 12 H40 V28 H34 M4 44 H44',
+  barrels: 'M4 40 H44 M6 40 V26 Q6 24 12 24 Q18 24 18 26 V40 M18 40 V26 Q18 24 24 24 Q30 24 30 26 V40 M30 40 V26 Q30 24 36 24 Q42 24 42 26 V40 M6 32 H42 M12 24 V12 Q12 10 18 10 Q24 10 24 12 V24 M24 24 V12 Q24 10 30 10 Q36 10 36 12 V24 M12 17 H36',
+  forest: 'M10 44 V34 M4 34 L10 20 L16 34 Z M24 44 V30 M16 30 L24 8 L32 30 Z M38 44 V34 M32 34 L38 20 L44 34 Z M2 44 H46',
+  pavilion: 'M10 22 H38 M12 22 V14 H36 V22 M8 14 L24 6 L40 14 M18 14 V22 M30 14 V22 M4 26 H44 M10 30 H38 M14 34 H34 M18 38 H30',
+  market: 'M4 44 V16 Q24 2 44 16 V44 M4 16 H44 M10 44 V24 H18 V44 M30 44 V24 H38 V44 M10 30 H18 M30 30 H38 M24 9 V16',
+  umeda: 'M8 44 V12 H20 V44 M28 44 V12 H40 V44 M6 12 H42 V6 H6 Z M20 32 L28 22 M20 36 L28 26 M11 18 H17 M31 18 H37 M11 24 H17 M31 24 H37',
+  lobby: 'M6 42 V8 H42 V42 M4 42 H44 M16 42 V30 H32 V42 M24 8 V16 M18 16 H30 L27 22 H21 Z M10 14 L14 18 M38 14 L34 18',
+  hall: 'M4 42 H44 M6 42 V22 H42 V42 M4 22 L24 14 L44 22 M10 28 V36 M16 28 V36 M22 28 V36 M26 28 V36 M32 28 V36 M38 28 V36 M20 14 V8 H28 V14',
+  sign: 'M6 12 H42 V26 H6 Z M12 18 H36 M16 22 H32 M14 26 V42 M34 26 V42 M4 42 H44',
+  suitcase: 'M10 14 H38 V42 H10 Z M18 14 V8 H30 V14 M16 42 V46 M32 42 V46 M10 24 H38 M20 20 V36 M28 20 V36',
+  passport: 'M12 6 H36 V42 H12 Z M18 18 a6 6 0 1 0 12 0 a6 6 0 1 0 -12 0 M18 32 H30 M18 36 H30',
+  desk: 'M4 30 H44 M8 30 V44 M40 30 V44 M14 30 V12 H34 V26 H14 M22 26 V30 M26 26 V30',
+  dumbbell: 'M6 18 V30 M12 13 V35 M36 13 V35 M42 18 V30 M12 24 H36 M2 24 H6 M42 24 H46',
+  pill: 'M10 30 L28 12 a7 7 0 0 1 10 10 L20 40 a7 7 0 0 1 -10 -10 Z M19 21 L29 31',
+  money: 'M4 14 H44 V34 H4 Z M19 24 a5 5 0 1 0 10 0 a5 5 0 1 0 -10 0 M10 18 V30 M38 18 V30',
+  plug: 'M16 6 V16 M32 6 V16 M10 16 H38 V26 Q38 36 24 36 Q10 36 10 26 Z M24 36 V44'
+};
+var IDEA_MOTIF = {
+  'Group at the gate': 'group', 'First look at Japan': 'plane', 'Gate selfie': 'person', 'In-flight meal': 'food', 'Tokyo lights below': 'city', 'Arrivals hall': 'sign', 'Narita Express': 'train', 'Group reunion': 'group', 'Last shuttle ride': 'train', 'Narita departures': 'sign', 'Bye, Japan': 'plane', 'Last look at Japan': 'plane', 'Home soon': 'plane', 'Night take-off': 'plane', 'Sunrise over home': 'sunset',
+  'Layers try-on': 'person', 'Errands done': 'bag', 'Pharmacy front': 'shop', 'Meds in carry-on': 'suitcase', 'Walking shoes': 'shoe', 'Shopping haul': 'bag', 'Yen in hand': 'money', 'Meds sorted': 'pill', 'Adapter and eSIM': 'plug',
+  'Clean desk': 'desk', 'Handover notes': 'desk', 'Team goodbye': 'group', 'Last workout': 'dumbbell', 'Post-class selfie': 'person', 'Gym crew': 'group', 'Packing flat-lay': 'suitcase', 'Passport and tickets': 'passport', 'Bag by the door': 'suitcase',
+  'Departure board': 'sign', 'Boarding pass': 'passport', 'Window seat': 'plane',
+  'Welcome to Japan sign': 'sign', 'Edo-style shop street': 'street', 'Keikyu platform': 'train', 'Art deco lobby': 'lobby', 'Room view': 'window', 'Late-night Asakusa': 'lantern',
+  'Storefront': 'shop', 'Shoe wall': 'shoe', 'New pair on foot': 'shoe', 'Vertical farm racks': 'farm', 'Fresh greens close-up': 'farm', 'Your drink': 'cup', 'Ginza façade': 'shop', 'Tax-free haul': 'bag', 'Group mirror shot': 'group', 'Neon street at dusk': 'neon', 'Yodobashi-Akiba': 'city', 'Arcade crane game': 'claw',
+  'Market lanes at 07:30': 'market', 'Sushi breakfast': 'sushi', 'Fresh fish counter': 'fish', 'Giant wooden torii': 'torii', 'Sake barrel wall': 'barrels', 'Forest path': 'forest', 'Crossing from above': 'crossing', 'Hachiko statue': 'statue', 'Crowd in motion': 'group', 'Sunset skyline': 'sunset', 'Blue hour city': 'city', 'Projection mapping': 'city', 'Lantern alley': 'lantern', 'Grill smoke': 'food', 'Godzilla head': 'neon',
+  'Fuji over the street': 'mountain', 'Retro shopfronts': 'street', 'E-bike pose': 'bike', 'Fuji across the lake': 'lake', 'Lakeside path': 'lake', 'Golden-hour light': 'sunset', 'Onsen entrance': 'onsen', 'Yukata selfie': 'person', 'Fuji from the room': 'window',
+  'Pagoda with Fuji': 'pagodaFuji', 'Sunrise sky': 'mountain', 'The 398 steps': 'stairs', 'Cable car': 'cable', 'Fuji from the top': 'mountain', 'Lake below': 'lake', 'Ship at the pier': 'boat', 'Fuji from the deck': 'boat', 'Wake on the lake': 'lake', 'Flower hills with Fuji': 'flowers', 'Flower beds': 'flowers', 'Lakeshore': 'lake',
+  'Running-man sign': 'neon', 'Canal at night': 'bridge', 'Giant crab sign': 'neon', 'Namba Parks terraces': 'city', 'Street food': 'food', 'Hotel window view': 'window', 'Covered arcade': 'market', 'FEELCYCLE studio': 'bike',
+  'Floating Garden deck': 'umeda', 'Escalator tube': 'umeda', 'City panorama': 'city', 'Main keep': 'castle', 'Moat and stone walls': 'castle', 'Golden roof details': 'castle', 'Retro game shop': 'shop', 'Figure displays': 'shop', 'Street signs': 'neon', 'Tsutenkaku tower': 'tower', 'Neon street signs': 'neon', 'Billiken statue': 'statue',
+  'Togetsukyo Bridge': 'bridge', 'Bamboo grove': 'bamboo', 'Hozu River': 'boat', 'Pavilion reflection': 'pavilion', 'Garden pond': 'pavilion', 'Gold leaf close-up': 'pavilion', 'Market arcade': 'market', 'Street snacks': 'food', 'Pickle stalls': 'market',
+  'Latte by the river': 'cup', 'Café front': 'shop', 'Bridge view': 'bridge', 'Stone steps': 'stairs', 'Yasaka Pagoda': 'pagoda', 'Old wooden shops': 'street', 'Hanamikoji lanes': 'lantern', 'Shirakawa canal': 'bridge', 'Lantern-lit dinner': 'lantern', 'Lit bamboo path': 'bamboo', 'Lantern trail': 'lantern', 'Group at night': 'group',
+  'Senbon torii tunnel': 'toriiRow', 'Fox statues': 'statue', 'Torii from below': 'torii', 'Grand staircase': 'stairs', 'Kyoto Tower': 'tower', 'Nozomi at platform 11': 'train', 'Red-brick Marunouchi': 'hall', 'Shinkansen arrival': 'train', 'Last group photo': 'group',
+  'Studio space': 'person', 'Post-class glow': 'person', 'Akasaka street': 'street', 'Observation deck': 'plane', 'Planes at night': 'plane', 'Last meal in Japan': 'food'
+};
+
+var IDEA_NOTE = {
+  'Errands done': 'Everything ticked off, bags in hand.',
+  'Pharmacy front': 'The pharmacy where you picked up your refill.',
+  'Meds in carry-on': 'Labelled packs in your carry-on, not the checked bag.',
+  'Group at the gate': 'All of you at the gate before boarding.',
+  'First look at Japan': 'The first glimpse of Japan from the air.',
+  'Gate selfie': 'One last selfie in KL before boarding.',
+  'In-flight meal': 'Whatever you pre-booked, tray and all.',
+  'Tokyo lights below': 'Tokyo glittering below on the way in to Haneda.',
+  'Arrivals hall': 'The group\u2019s first steps in Japan.',
+  'Narita Express': 'The train from the airport into the city.',
+  'Group reunion': 'Everyone together again in Asakusa.',
+  'Last shuttle ride': 'The 06:00 hotel shuttle to the terminal.',
+  'Narita departures': 'Your 10:05 flight on the departures board.',
+  'Bye, Japan': 'One last look before boarding.',
+  'Last look at Japan': 'Japan slipping away under the wing.',
+  'Home soon': 'Nearly home, with a camera full of Japan.',
+  'Night take-off': 'Haneda\u2019s lights as the plane lifts off at 23:55.',
+  'Sunrise over home': 'Dawn over Malaysia as you come in to land.',
+  'Layers try-on': 'Check it packs small and layers over a T-shirt for the cold Fuji morning.',
+  'Walking shoes': 'A broken-in pair for long city days and the 398 Chureito steps.',
+  'Shopping haul': 'Everything you bought, laid out before it goes in the bag.',
+  'Yen in hand': 'Cash for markets, shrines and small shops that skip cards.',
+  'Meds sorted': 'Original labelled packs, kept in your carry-on.',
+  'Adapter and eSIM': 'Type A plug adapter and your Japan data, ready to go.',
+  'Clean desk': 'A last look at your desk before two weeks away.',
+  'Handover notes': 'Who covers what while you are out.',
+  'Team goodbye': 'A quick send-off with the team.',
+  'Last workout': 'One more session before eleven days of walking.',
+  'Post-class selfie': 'Sweaty, happy and nearly on holiday.',
+  'Gym crew': 'The Chrome Club regulars.',
+  'Packing flat-lay': 'Everything you are taking, shot from above.',
+  'Passport and tickets': 'Passport, booking refs and the Visit Japan Web QR.',
+  'Bag by the door': 'Packed, zipped and ready for Tuesday morning.',
+  'Departure board': 'Find D7 522 to Tokyo Haneda on the KLIA2 screens.',
+  'Boarding pass': 'Your seat on the 14:45 to Tokyo.',
+  'Window seat': 'Clouds, coastline and the view from your seat.',
+  'Welcome to Japan sign': 'The arrivals signage just after immigration.',
+  'Edo-style shop street': 'Old-Tokyo shopfronts inside Terminal 3.',
+  'Keikyu platform': 'The red Keikyu train that runs through to Asakusa.',
+  'Art deco lobby': 'The hotel’s deco details, even at midnight.',
+  'Room view': 'Asakusa from your window on the first morning.',
+  'Late-night Asakusa': 'Lantern-lit streets after the crowds have gone.',
+  'Storefront': 'The ASICS flagship near Shimbashi.',
+  'Shoe wall': 'Rows of colourways you won’t find at home.',
+  'New pair on foot': 'First steps in your new pair, Ginza pavement below.',
+  'Vertical farm racks': 'Lettuce growing under LED racks inside the store.',
+  'Fresh greens close-up': 'Leaves, roots and grow-light glow, up close.',
+  'Your drink': 'Your café order with the growing racks behind it.',
+  'Ginza façade': 'The glowing UNIQLO frontage on the main street.',
+  'Tax-free haul': 'Bags and receipts after the Ginza run.',
+  'Group mirror shot': 'All four in one fitting-room mirror.',
+  'Neon street at dusk': 'Akihabara signs switching on as it gets dark.',
+  'Yodobashi-Akiba': 'The giant electronics store and its floor guide.',
+  'Arcade crane game': 'A crane mid-grab, prize in sight.',
+  'Market lanes at 07:30': 'Narrow lanes as stalls open, before the crowds.',
+  'Sushi breakfast': 'Sashimi on rice, shot from above.',
+  'Fresh fish counter': 'Ice, fish and the owner at work. Ask before you shoot.',
+  'Giant wooden torii': 'The huge cypress gate on the gravel walk in.',
+  'Sake barrel wall': 'Rows of painted sake barrels given to the shrine.',
+  'Forest path': 'Gravel path under tall trees, with no buildings in sight.',
+  'Crossing from above': 'The scramble from a high window when the lights change.',
+  'Hachiko statue': 'The loyal dog by the station exit.',
+  'Crowd in motion': 'Slow shutter or burst as everyone crosses at once.',
+  'Sunset skyline': 'Sunset at 16:49 from the free observation deck.',
+  'Blue hour city': 'The minutes after sunset when the sky turns deep blue.',
+  'Projection mapping': 'Light show on the tower, every 30 minutes from 18:00.',
+  'Lantern alley': 'Red lanterns down the tiny lane. No tripods or flash here.',
+  'Grill smoke': 'Smoke curling up from a counter grill.',
+  'Godzilla head': 'Godzilla peering over the Toho building in Kabukicho.',
+  'Fuji over the street': 'Fuji rising at the end of the street. Mind the traffic.',
+  'Retro shopfronts': 'Old signs and shutters along Honcho.',
+  'E-bike pose': 'You on the e-bike with Fuji behind.',
+  'Fuji across the lake': 'Fuji across Lake Kawaguchi from the park.',
+  'Lakeside path': 'The shoreline path in afternoon light.',
+  'Golden-hour light': 'Warm light on the water before the 16:53 sunset.',
+  'Onsen entrance': 'The curtain at the bath entrance. No photos inside the baths.',
+  'Yukata selfie': 'In the hotel yukata after a soak.',
+  'Fuji from the room': 'Check the window at dawn; the summit may be clear.',
+  'Pagoda with Fuji': 'The classic view from the lookout above the pagoda.',
+  'Sunrise sky': 'The sky turning orange around 06:04.',
+  'The 398 steps': 'Halfway up, looking back down the stairs.',
+  'Cable car': 'The ropeway car rising over the trees.',
+  'Fuji from the top': 'Fuji from the summit deck, if the clouds allow.',
+  'Lake below': 'Lake Kawaguchi and the town spread out below.',
+  'Ship at the pier': 'The Appare boat waiting at the pier.',
+  'Fuji from the deck': 'Fuji over the bow, mid-cruise.',
+  'Wake on the lake': 'The boat’s trail across the water.',
+  'Flower hills with Fuji': 'Autumn colour on the slopes with Fuji behind.',
+  'Flower beds': 'Close-up colour along the lakeside beds.',
+  'Lakeshore': 'The quiet north shore; Fuji reflects when the water is still.',
+  'Running-man sign': 'The famous runner sign, seen from the bridge.',
+  'Canal at night': 'Neon reflected in the Dotonbori canal.',
+  'Giant crab sign': 'The moving crab above the restaurant door.',
+  'Namba Parks terraces': 'Rooftop gardens stepping up the building.',
+  'Street food': 'Something hot and halal in hand.',
+  'Hotel window view': 'Namba from your hotel room.',
+  'Covered arcade': 'The long shopping arcade stretching away.',
+  'FEELCYCLE studio': 'The ride studio, if you drop in for a class.',
+  'Floating Garden deck': 'The open-air rooftop ring between the two towers.',
+  'Escalator tube': 'The glass escalator crossing the gap between towers.',
+  'City panorama': 'Osaka spread out in every direction.',
+  'Main keep': 'The white-and-green keep from the garden.',
+  'Moat and stone walls': 'Huge stones and still water around the castle.',
+  'Golden roof details': 'Gold ornaments on the roof; use zoom.',
+  'Retro game shop': 'Shelves of old consoles and cartridges.',
+  'Figure displays': 'Glass cases packed with figures.',
+  'Street signs': 'Signboards stacked up the buildings.',
+  'Tsutenkaku tower': 'The tower framed at the end of the street.',
+  'Neon street signs': 'Shinsekai’s signs lighting up at dusk.',
+  'Billiken statue': 'The lucky god whose feet people rub.',
+  'Togetsukyo Bridge': 'The long bridge with wooded hills behind.',
+  'Bamboo grove': 'Look straight up through the tall bamboo.',
+  'Hozu River': 'Boats on the river beside the bridge.',
+  'Pavilion reflection': 'The gold pavilion mirrored in the pond.',
+  'Garden pond': 'Pines and small islands in the pond.',
+  'Gold leaf close-up': 'The gold walls up close, with zoom from the path.',
+  'Market arcade': 'The narrow covered market street.',
+  'Street snacks': 'Something on a stick as you walk.',
+  'Pickle stalls': 'Colourful pickles in wooden barrels.',
+  'Latte by the river': 'Your coffee with the river and bridge behind.',
+  'Café front': 'The minimal shopfront by the bridge.',
+  'Bridge view': 'Togetsukyo in soft morning light.',
+  'Stone steps': 'The sloping stone lanes up toward Kiyomizu.',
+  'Yasaka Pagoda': 'The five-storey pagoda at the end of the lane.',
+  'Old wooden shops': 'Wooden townhouses with cloth curtains.',
+  'Hanamikoji lanes': 'Lanterns and teahouses. Keep out of private side lanes.',
+  'Shirakawa canal': 'Willows and stone bridges along the canal.',
+  'Lantern-lit dinner': 'Your table in Gion as the lanterns come on.',
+  'Lit bamboo path': 'The bamboo grove lit up for the evening.',
+  'Lantern trail': 'The lantern trail, about 1 km long.',
+  'Group at night': 'All four together under the lights.',
+  'Senbon torii tunnel': 'The tunnel of orange gates near the start of the climb.',
+  'Fox statues': 'Stone foxes holding keys and scrolls.',
+  'Torii from below': 'Look up through the gates for a pattern shot.',
+  'Grand staircase': 'The station’s huge staircase and glass roof.',
+  'Kyoto Tower': 'The tower across from the station.',
+  'Nozomi at platform 11': 'Your bullet train pulling in for the 14:13.',
+  'Red-brick Marunouchi': 'The restored brick station from the front plaza.',
+  'Shinkansen arrival': 'Stepping off in Tokyo at 16:24.',
+  'Last group photo': 'All four together before the group heads to Narita.',
+  'Studio space': 'The yoga studio before class.',
+  'Post-class glow': 'After your last class of the trip.',
+  'Akasaka street': 'A quiet Akasaka backstreet.',
+  'Observation deck': 'Planes on the apron from the Terminal 3 deck.',
+  'Planes at night': 'Lights and tails on the runway after dark.',
+  'Last meal in Japan': 'Your final meal before D7 523 home.'
+};
+
+/* ---------- helpers ---------- */
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function dayDate(d) { var p = d.date.split(' '); return new Date(2026, MON[p[2]], Number(p[1])); }
+function motif(t) { return MOTIFS[IDEA_MOTIF[t]] || MOTIFS.city; }
+function sketch(t, size, sw) { return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="' + sw + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + motif(t) + '"/></svg>'; }
+function mapsUrl(q) { return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q); }
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function genMap(name, W, H) {
+  var r = 0, c;
+  for (c = 0; c < name.length; c++) r = (r * 31 + name.charCodeAt(c)) % 233280;
+  function rnd() { r = (r * 9301 + 49297) % 233280; return r / 233280; }
+  function f(v) { return v.toFixed(1); }
+  var major = '', minor = '', i;
+  for (i = 0; i < 3; i++) { var y = H * (0.2 + 0.3 * i) + (rnd() - 0.5) * H * 0.15; major += 'M-10 ' + f(y) + ' L' + (W + 10) + ' ' + f(y + (rnd() - 0.5) * H * 0.3) + ' '; }
+  for (i = 0; i < 2; i++) { var x = W * (0.3 + 0.4 * i) + (rnd() - 0.5) * W * 0.15; major += 'M' + f(x) + ' -10 L' + f(x + (rnd() - 0.5) * W * 0.25) + ' ' + (H + 10) + ' '; }
+  for (i = 0; i < 9; i++) {
+    if (rnd() < 0.5) { var yy = rnd() * H; minor += 'M-10 ' + f(yy) + ' L' + (W + 10) + ' ' + f(yy + (rnd() - 0.5) * H * 0.2) + ' '; }
+    else { var xx = rnd() * W; minor += 'M' + f(xx) + ' -10 L' + f(xx + (rnd() - 0.5) * W * 0.2) + ' ' + (H + 10) + ' '; }
+  }
+  var ry = H * (0.15 + 0.7 * rnd());
+  var river = 'M-20 ' + f(ry) + ' C' + f(W * 0.3) + ' ' + f(ry + H * 0.3) + ' ' + f(W * 0.6) + ' ' + f(ry - H * 0.3) + ' ' + (W + 20) + ' ' + f(ry + H * 0.1);
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="' + W + '" height="' + H + '" fill="#ECE8E0"/><path d="' + river + '" fill="none" stroke="#C9D4E6" stroke-width="8" stroke-linecap="round"/><path d="' + minor + '" fill="none" stroke="#DED8CC" stroke-width="1"/><path d="' + major + '" fill="none" stroke="#FFFFFF" stroke-width="3.5"/><circle cx="' + W / 2 + '" cy="' + H / 2 + '" r="11" fill="rgba(200,64,43,0.16)"/><circle cx="' + W / 2 + '" cy="' + H / 2 + '" r="5" fill="#C8402B" stroke="#FFFFFF" stroke-width="2"/></svg>';
+}
+var ICON = {
+  chev: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>',
+  clock: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  bed: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18V8M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5"/><circle cx="7" cy="11" r="1.6"/></svg>',
+  plus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  x: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  left: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>',
+  right: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>',
+  pin: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/></svg>',
+  flip: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7M4 4v4h4"/></svg>',
+  ext: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+  play: '<svg width="22" height="22" viewBox="0 0 24 24" fill="#FFFFFF" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>',
+  down: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>'
+};
+
+/* ---------- state ---------- */
+var ui = { day: 0, todoOpen: false, open: {}, focus: {}, flip: {}, edit: null, sheet: null, lb: null, delArm: false };
+var data = { done: {}, custom: {} };
+var media = [];
+
+(function pickDay() {
+  var now = new Date(); now.setHours(0, 0, 0, 0);
+  var idx = -1;
+  DAYS.forEach(function (d, i) { if (dayDate(d).getTime() === now.getTime()) idx = i; });
+  if (idx < 0) idx = now < dayDate(DAYS[0]) ? 0 : (now > dayDate(DAYS[DAYS.length - 1]) ? DAYS.length - 1 : 0);
+  ui.day = idx;
+  ui.todoOpen = lsGet('jj-todo-open') === '1';
+})();
+
+/* ---------- rendering ---------- */
+function countdownText() {
+  var now = new Date(); now.setHours(0, 0, 0, 0);
+  var diff = Math.round((TRIP_START - now) / 86400000);
+  if (diff > 1) return diff + ' days to go';
+  if (diff === 1) return 'Fly tomorrow';
+  if (diff === 0) return 'Flying today';
+  var n = -diff + 1;
+  return n <= tripDays ? 'Day ' + n + ' of ' + tripDays : 'Home again';
+}
+
+function renderHeader() {
+  var d = DAYS[ui.day];
+  var p = d.date.split(' ');
+  var tripIdx = d.prep ? 0 : DAYS.indexOf(d) - prepDays + 1;
+  var eyebrow = d.prep ? 'Prep ' + (DAYS.indexOf(d) + 1) + ' / ' + prepDays : 'Day ' + tripIdx + ' / ' + tripDays;
+  $('countdown').textContent = countdownText();
+  $('dateline').innerHTML =
+    '<div class="cal"><span class="mon">' + (p[2] === 'Nov' ? '十一月' : '十月') + '</span><span class="num">' + p[1] + '</span><span class="seal">' + WD_JP[p[0]] + '</span></div>' +
+    '<div class="day-info"><span class="eyebrow">' + esc(eyebrow + '  ·  ' + d.date) + '</span><h1>' + esc(d.title) + '</h1>' +
+    '<div class="meta"><span class="city">' + esc(d.city) + '</span><span class="stay">' + ICON.bed + esc(d.stay) + '</span></div></div>';
+}
+
+function dayTodos(d) {
+  var list = d.todos.map(function (t, j) { return { key: d.short + '-' + j, text: t[0], opt: !!t[1] }; });
+  (data.custom[d.short] || []).forEach(function (c) { list.push({ key: c.id, text: c.text, custom: true }); });
+  return list;
+}
+
+function renderTabs() {
+  var html = '';
+  DAYS.forEach(function (d, i) {
+    if (i > 0 && DAYS[i - 1].prep && !d.prep) html += '<div class="depart" aria-hidden="true"><i></i><span>出発</span><i></i></div>';
+    var p = d.date.split(' ');
+    var todos = dayTodos(d);
+    var all = todos.length > 0 && todos.every(function (t) { return data.done[t.key]; });
+    html += '<button type="button" class="tab' + (d.prep ? ' prep' : '') + (all ? ' done' : '') + '" data-act="day" data-i="' + i + '" aria-label="' + esc((d.prep ? 'Prep, ' : '') + d.date) + '"' + (i === ui.day ? ' aria-current="date"' : '') + '>' +
+      '<span class="wd">' + WD_JP[p[0]] + '</span><span class="n">' + p[1] + '</span><span class="dot"></span></button>';
+  });
+  $('tabs').innerHTML = html;
+  var cur = $('tabs').querySelector('[aria-current]');
+  if (cur && cur.scrollIntoView) { try { cur.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (e) {} }
+}
+
+function renderChecklist() {
+  var d = DAYS[ui.day];
+  var todos = dayTodos(d);
+  var done = todos.filter(function (t) { return data.done[t.key]; }).length;
+  var next = todos.find(function (t) { return !data.done[t.key]; });
+  var circ = 2 * Math.PI * 16;
+  var dash = (todos.length ? circ * done / todos.length : 0).toFixed(1) + ' ' + circ.toFixed(1);
+  var html = '<section class="check' + (ui.todoOpen ? ' open' : '') + '" id="check">' +
+    '<button type="button" class="check-sum" data-act="todo-toggle" aria-expanded="' + ui.todoOpen + '">' +
+    '<span class="ring"><svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" fill="none" stroke="#D9E0EE" stroke-width="4"/><circle cx="20" cy="20" r="16" fill="none" stroke="#24407A" stroke-width="4" stroke-linecap="round" stroke-dasharray="' + dash + '"/></svg><span>' + done + '/' + todos.length + '</span></span>' +
+    '<span class="check-txt"><b>CHECKLIST</b><span>' + esc(next ? 'Next: ' + next.text : 'All done for today') + '</span></span>' +
+    '<span class="chev">' + ICON.chev + '</span></button>';
+  if (ui.todoOpen) {
+    html += '<div class="check-body"><ul>';
+    todos.forEach(function (t) {
+      var id = 'todo-' + t.key;
+      html += '<li class="' + (data.done[t.key] ? 'is-done' : '') + '"><input type="checkbox" id="' + esc(id) + '" data-act="todo" data-k="' + esc(t.key) + '"' + (data.done[t.key] ? ' checked' : '') + '>' +
+        '<label for="' + esc(id) + '">' + esc(t.text) + '</label>' +
+        (t.opt ? '<span class="opt">Optional</span>' : '') +
+        (t.custom ? '<button type="button" class="rm" data-act="todo-rm" data-k="' + esc(t.key) + '" aria-label="Remove ' + esc(t.text) + '">' + ICON.x + '</button>' : '') + '</li>';
+    });
+    html += '</ul><form class="add-task" id="add-task">' + ICON.plus + '<input id="new-task" type="text" aria-label="New task" placeholder="Add a task" autocomplete="off" enterkeyhint="done"></form></div>';
+  }
+  return html + '</section>';
+}
+
+function placeMedia(k) { return media.filter(function (m) { return m.key === k; }).sort(function (a, b) { return a.takenAt - b.takenAt; }); }
+
+function buildPages(d, j) {
+  var p = d.places[j], k = d.short + '-' + j;
+  var pm = placeMedia(k), used = {};
+  var pages = [];
+  (p[2] || []).forEach(function (idea, i) {
+    var hit = pm.find(function (m) { return m.slot === i && !used[m.id]; });
+    if (hit) { used[hit.id] = 1; pages.push({ kind: 'media', m: hit, idea: idea, slot: i }); }
+    else pages.push({ kind: 'idea', idea: idea, slot: i });
+  });
+  pm.forEach(function (m) { if (!used[m.id]) pages.push({ kind: 'media', m: m, idea: null, slot: null }); });
+  pages.push({ kind: 'add' });
+  return pages;
+}
+
+function mediaTitle(pg) {
+  if (pg.m && pg.m.title) return pg.m.title;
+  if (pg.idea) return pg.idea;
+  var t = new Date(pg.m.takenAt);
+  return (pg.m.type === 'video' ? 'Video at ' : 'Photo at ') + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
+}
+
+function renderPlace(d, j) {
+  var p = d.places[j], k = d.short + '-' + j;
+  var open = !!ui.open[k];
+  var pages = buildPages(d, j);
+  var pm = placeMedia(k);
+  var fan = pages.filter(function (x) { return x.kind !== 'add'; }).slice(0, 3).map(function (x) {
+    if (x.kind === 'media') return '<span>' + imgTag(x.m, 200, '') + '</span>';
+    return '<span style="color:var(--sketch)">' + sketch(x.idea, 24, 2.4) + '</span>';
+  }).join('');
+  var html = '<article class="place' + (open ? ' is-open' : '') + '" data-k="' + k + '">' +
+    '<button type="button" class="place-head" data-act="place" data-k="' + k + '" aria-expanded="' + open + '">' +
+    '<span class="fan" aria-hidden="true">' + fan + '</span>' +
+    '<span class="place-txt"><b>' + esc(p[0]) + '</b><span>' + ICON.clock + esc(p[1]) + '</span></span>' +
+    '<span class="count">' + (pm.length ? pm.length + (pm.length === 1 ? ' item' : ' items') : '') + '</span>' +
+    '<span class="arrow">' + ICON.chev + '</span></button>';
+  if (open) {
+    html += '<div class="panel"><div class="stage" id="stage-' + k + '" data-k="' + k + '" tabindex="0" role="group" aria-roledescription="flipbook" aria-label="' + esc(p[0]) + ' album. Swipe or use arrow keys to turn pages.">';
+    pages.forEach(function (pg, i) {
+      var spot = pg.slot !== null && pg.slot !== undefined && p[3];
+      html += '<div class="pg" data-i="' + i + '"><div class="pg-in">';
+      var capHtml = '';
+      var badge = '';
+      if (pg.kind === 'idea') {
+        html += '<button type="button" class="face front" data-act="page" data-k="' + k + '" data-i="' + i + '" aria-label="' + esc(pg.idea + (spot ? ', shot idea, tap for the spot' : ', shot idea, tap to shoot')) + '"><span class="ph">' + badge + sketch(pg.idea, 104, 1.3) + '</span>' + capHtml + '</button>';
+      } else if (pg.kind === 'media') {
+        html += '<button type="button" class="face front" data-act="page" data-k="' + k + '" data-i="' + i + '" aria-label="' + esc(mediaTitle(pg) + (pg.m.type === 'video' ? ', video' : ', photo')) + '"><span class="ph">' + badge +
+          (pg.m.type === 'video' ? imgTag(pg.m, 900, 'poster') + '<video muted playsinline loop preload="none"></video><span class="play">' + ICON.play + '</span>' : imgTag(pg.m, 900, '')) + (pg.m.by ? '<span class="by">' + esc(pg.m.by.split(' ')[0]) + '</span>' : '') +
+          '</span>' + capHtml + '</button>';
+      } else {
+        html += '<button type="button" class="face front add" data-act="page" data-k="' + k + '" data-i="' + i + '" aria-label="Add a photo or video"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New page</button>';
+      }
+      if (spot) {
+        var gk = p[4] || k;
+        html += '<div class="face back"><a class="mini" href="' + esc(dirUrl(p, gk)) + '" target="_blank" rel="noopener" tabindex="-1" aria-label="Directions to ' + esc(p[0]) + ' in Google Maps">' + (GEO[gk] ? '<img src="maps/' + gk + '.jpg" alt="" class="mini-static"><div class="lmap" id="lm-' + k + '-' + i + '" data-geo="' + gk + '"></div>' : genMap(p[0], 240, 200)) + '</a>' +
+          '<div class="back-txt"><b>' + esc(pg.idea) + '</b><span>' + esc(p[0]) + '</span></div>' +
+          '<div class="back-row">' +
+          '<button type="button" class="icon-btn" data-act="unflip" data-k="' + k + '" tabindex="-1" aria-label="Show the sketch">' + ICON.flip + '</button>' +
+          '<button type="button" class="shoot" data-act="shoot" data-k="' + k + '" data-slot="' + pg.slot + '" tabindex="-1">' + (pg.kind === 'idea' ? 'Shoot here' : 'Add another') + '</button></div></div>';
+      }
+      html += '</div></div>';
+    });
+    html += '</div><div class="flip-nav" id="nav-' + k + '"><button type="button" class="nav-btn" data-act="prev" data-k="' + k + '" aria-label="Previous page">' + ICON.left + '</button>' +
+      '<div class="cap" id="cap-' + k + '" aria-live="polite"></div>' +
+      '<button type="button" class="nav-btn" data-act="next" data-k="' + k + '" aria-label="Next page">' + ICON.right + '</button></div></div>';
+  }
+  return html + '</article>';
+}
+
+function layoutStage(k) {
+  var stage = $('stage-' + k);
+  if (!stage) return;
+  var parts = k.split('-'); var d = DAYS.find(function (x) { return x.short === parts[0]; }); var j = Number(parts[1]);
+  var pages = buildPages(d, j);
+  var last = pages.length - 1;
+  var focus = Math.max(0, Math.min(last, ui.focus[k] || 0));
+  ui.focus[k] = focus;
+  var flipped = ui.flip[k] === focus;
+  Array.prototype.forEach.call(stage.querySelectorAll('.pg'), function (el) {
+    var i = Number(el.getAttribute('data-i')), o = i - focus, a = Math.abs(o), sg = o < 0 ? -1 : 1;
+    var t, op, z;
+    if (a === 0) { t = 'translateX(0) scale(1)'; op = 1; z = 5; }
+    else if (a === 1) { t = 'translateX(' + sg * 66 + '%) scale(0.76) rotateY(' + -sg * 35 + 'deg)'; op = 0.8; z = 4; }
+    else if (a === 2) { t = 'translateX(' + sg * 104 + '%) scale(0.6) rotateY(' + -sg * 45 + 'deg)'; op = 0.4; z = 3; }
+    else { t = 'translateX(' + sg * 130 + '%) scale(0.5)'; op = 0; z = 1; }
+    el.style.transform = t; el.style.opacity = op; el.style.zIndex = z; el.style.pointerEvents = a > 2 ? 'none' : '';
+    var isF = a === 0 && flipped;
+    el.classList.toggle('flipped', isF);
+    var front = el.querySelector('.front'); if (front) front.tabIndex = a === 0 && !isF ? 0 : -1;
+    var fv = el.querySelector('.front video');
+    if (fv) {
+      if (a === 0 && !isF) { var pgm = pages[i]; if (pgm && pgm.m) ensureVideo(el, pgm.m); }
+      else { try { fv.pause(); } catch (err) {} el.classList.remove('playing'); }
+    }
+    Array.prototype.forEach.call(el.querySelectorAll('.back a, .back button'), function (b) { b.tabIndex = isF ? 0 : -1; });
+    if (isF) initLiveMap(el);
+  });
+  var pg = pages[focus], p = d.places[j];
+  var cap = $('cap-' + k), nav = $('nav-' + k);
+  if (!cap) return;
+  var editing = pg.kind === 'media' && ui.edit === pg.m.id;
+  nav.classList.toggle('editing', editing);
+  nav.querySelector('[data-act="prev"]').disabled = focus === 0;
+  nav.querySelector('[data-act="next"]').disabled = focus === last;
+  if (editing) {
+    cap.outerHTML = '<form class="cap-form" id="cap-' + k + '" data-k="' + k + '" data-id="' + esc(pg.m.id) + '">' +
+      '<input id="cap-title" type="text" maxlength="60" aria-label="Caption" placeholder="Caption" value="' + esc(pg.m.title || pg.idea || '') + '">' +
+      '<textarea id="cap-note" rows="2" maxlength="160" aria-label="Note" placeholder="A line about this moment">' + esc(pg.m.note || '') + '</textarea>' +
+      '<div class="cap-btns"><button type="button" data-act="cap-cancel" data-k="' + k + '">Cancel</button><button type="submit">Save</button></div></form>';
+    var ti = $('cap-title'); if (ti) ti.focus();
+    return;
+  }
+  if (cap.tagName === 'FORM') { cap.outerHTML = '<div class="cap" id="cap-' + k + '" aria-live="polite"></div>'; cap = $('cap-' + k); }
+  var title, sub, pen = '';
+  if (pg.kind === 'add') { title = 'New page'; sub = 'Shoot or pick a photo or video, then give it a caption.'; }
+  else if (pg.kind === 'idea') { title = pg.idea; sub = flipped ? 'Head to ' + p[0] + ', then tap Shoot here.' : (IDEA_NOTE[pg.idea] || ''); }
+  else {
+    title = mediaTitle(pg);
+    sub = pg.m.note || (pg.idea && !pg.m.title ? IDEA_NOTE[pg.idea] || '' : '') || (pg.m.type === 'video' ? 'Video' : 'Photo') + ' · tap the pencil to add a note';
+    if (pg.m.mine) pen = '<button type="button" class="pen" data-act="cap-edit" data-k="' + k + '" data-id="' + esc(pg.m.id) + '" aria-label="Edit caption and note"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg></button>';
+  }
+  if (pg.kind === 'media' && pg.m.by) sub = 'by ' + pg.m.by.split(' ')[0] + '  \u00b7  ' + sub;
+  cap.innerHTML = '<span class="cap-t"><b>' + esc(title) + '</b>' + pen + '</span><span>' + esc(sub) + '</span>';
+}
+
+function turnPage(k, step) {
+  ui.focus[k] = (ui.focus[k] || 0) + step;
+  delete ui.flip[k];
+  ui.edit = null;
+  layoutStage(k);
+}
+
+function renderMain() {
+  var d = DAYS[ui.day];
+  var dm = media.filter(function (m) { return m.key.split('-')[0] === d.short; });
+  var html = '';
+  if (!signedIn()) html += '<section class="signin"><b>Shared album</b><span>Sign in with the Google account the Japan 2026 folder is shared with. Everyone\'s photos and videos show up here.</span><button type="button" class="signin-btn" data-act="signin">Sign in with Google</button></section>';
+  html += renderChecklist();
+  html += '<section><div class="places-head"><h2>Places</h2>' +
+    (dm.length ? '<button type="button" class="save-day" data-act="save-day">' + ICON.down + 'Save ' + dm.length + ' to phone</button>' : '<span class="count">' + (dm.length ? dm.length + ' saved' : '') + '</span>') + '</div>';
+  d.places.forEach(function (p, j) { html += renderPlace(d, j); });
+  html += '</section>';
+  if (signedIn()) html += '<p class="who">Signed in' + (auth.me ? ' as ' + esc(auth.me.name || auth.me.email) : '') + '  \u00b7  <button type="button" class="link" data-act="signout">Sign out</button></p>';
+  $('main').innerHTML = html;
+  d.places.forEach(function (p, j) { var k = d.short + '-' + j; if (ui.open[k]) layoutStage(k); });
+}
+
+function renderAll() { renderHeader(); renderTabs(); renderMain(); }
+/* ---------- toast ---------- */
+var toastT;
+function toast(msg, keep) {
+  $('toast-text').textContent = msg;
+  $('toast').hidden = false;
+  clearTimeout(toastT);
+  if (!keep) toastT = setTimeout(function () { $('toast').hidden = true; }, 2800);
+}
+
+/* ---------- Google sign-in ---------- */
+var CLIENT_ID = '1032541544520-vg772kte2uahjk7hhd0md7tqnogmk3a6.apps.googleusercontent.com';
+var FOLDER = '1ZbWwlAwhTkEtpRpwaBXqKW88cUCsy62u';
+var SCOPES = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.appdata';
+var API = 'https://www.googleapis.com/drive/v3';
+var UPAPI = 'https://www.googleapis.com/upload/drive/v3';
+var auth = { token: null, exp: 0, client: null, me: null };
+(function () {
+  try {
+    var s = JSON.parse(localStorage.getItem('jj-token') || 'null');
+    if (s && s.token && s.exp > Date.now() + 60000) { auth.token = s.token; auth.exp = s.exp; }
+  } catch (e) {}
+})();
+function signedIn() { return !!auth.token && Date.now() < auth.exp - 30000; }
+function initGis() {
+  if (auth.client) return true;
+  if (!window.google || !google.accounts || !google.accounts.oauth2) return false;
+  auth.client = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: function (r) {
+      if (!r || r.error) { toast('Sign-in did not finish. Tap Sign in to try again.'); return; }
+      auth.token = r.access_token;
+      auth.exp = Date.now() + (Number(r.expires_in) || 3600) * 1000;
+      lsSet('jj-token', JSON.stringify({ token: auth.token, exp: auth.exp }));
+      onSignedIn();
+    },
+    error_callback: function () { toast('Sign-in window was closed.'); }
+  });
+  return true;
+}
+function signIn() {
+  if (!initGis()) { toast('Google sign-in is still loading. Try again in a moment.'); return; }
+  var hint = lsGet('jj-email');
+  auth.client.requestAccessToken(hint ? { prompt: '', login_hint: hint } : {});
+}
+function signOut() {
+  try { if (auth.token && window.google) google.accounts.oauth2.revoke(auth.token, function () {}); } catch (e) {}
+  auth.token = null; auth.exp = 0; auth.me = null; lsSet('jj-token', ''); media = [];
+  renderAll();
+}
+function needAuth() { auth.token = null; lsSet('jj-token', ''); renderMain(); }
+
+function gfetch(url, opt) {
+  if (!signedIn()) { needAuth(); return Promise.reject({ code: 'auth' }); }
+  opt = opt || {};
+  opt.headers = Object.assign({ Authorization: 'Bearer ' + auth.token }, opt.headers || {});
+  return fetch(url, opt).then(function (r) {
+    if (r.status === 401) { needAuth(); throw { code: 'auth' }; }
+    if (!r.ok && r.status !== 308) return r.text().then(function (t) { throw { code: 'http', status: r.status, text: t }; });
+    return r;
+  });
+}
+function gjson(url, opt) { return gfetch(url, opt).then(function (r) { return r.status === 204 ? null : r.json(); }); }
+function qs(o) { return Object.keys(o).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(o[k]); }).join('&'); }
+function errText(e) {
+  if (!e) return 'Something went wrong. Try again.';
+  if (e.code === 'auth') return 'Please sign in again.';
+  if (e.status === 403 || e.status === 404) return 'No access to the Japan 2026 folder yet. Ask Muhammad to share it with your Google account.';
+  if (e.status === 507 || (e.text && /storageQuota/i.test(e.text))) return 'Drive storage is full.';
+  return 'Could not reach Google Drive. Check your connection and try again.';
+}
+
+function onSignedIn() {
+  gjson(API + '/about?' + qs({ fields: 'user(displayName,emailAddress)' })).then(function (r) {
+    auth.me = { name: (r.user && r.user.displayName) || '', email: (r.user && r.user.emailAddress) || '' };
+    if (auth.me.email) lsSet('jj-email', auth.me.email);
+    renderMain();
+  }).catch(function () {});
+  loadChecklist();
+  loadMedia();
+}
+
+/* ---------- personal checklist (each person's own, in their Drive app data) ---------- */
+var checkFileId = null, saveT = null;
+(function () { try { var c = JSON.parse(localStorage.getItem('jj-check') || 'null'); if (c) { data.done = c.done || {}; data.custom = c.custom || {}; } } catch (e) {} })();
+function loadChecklist() {
+  gjson(API + '/files?' + qs({ spaces: 'appDataFolder', q: "name='checklist.json'", fields: 'files(id)' })).then(function (r) {
+    var f = r.files && r.files[0];
+    if (!f) return null;
+    checkFileId = f.id;
+    return gjson(API + '/files/' + f.id + '?alt=media');
+  }).then(function (body) {
+    if (body) { data.done = body.done || {}; data.custom = body.custom || {}; lsSet('jj-check', JSON.stringify(data)); renderTabs(); renderMain(); }
+  }).catch(function () {});
+}
+function saveState() {
+  lsSet('jj-check', JSON.stringify(data));
+  clearTimeout(saveT);
+  saveT = setTimeout(function () {
+    if (!signedIn()) return;
+    var body = JSON.stringify({ done: data.done, custom: data.custom, updatedAt: Date.now() });
+    var p;
+    if (checkFileId) p = gfetch(UPAPI + '/files/' + checkFileId + '?uploadType=media', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: body });
+    else p = multipart({ name: 'checklist.json', parents: ['appDataFolder'], mimeType: 'application/json' }, new Blob([body], { type: 'application/json' })).then(function (f) { checkFileId = f.id; });
+    p.catch(function () {});
+  }, 900);
+}
+
+/* ---------- shared album (files in the Japan 2026 Drive folder) ---------- */
+var FIELDS = 'nextPageToken,files(id,name,mimeType,appProperties,description,thumbnailLink,createdTime,webViewLink,size,owners(displayName,me),imageMediaMetadata(location),videoMediaMetadata(durationMillis))';
+var loadingMedia = false;
+function toMedia(f) {
+  var a = f.appProperties || {};
+  var loc = f.imageMediaMetadata && f.imageMediaMetadata.location;
+  var lat = a.lat ? parseFloat(a.lat) : (loc && typeof loc.latitude === 'number' ? loc.latitude : null);
+  var lng = a.lng ? parseFloat(a.lng) : (loc && typeof loc.longitude === 'number' ? loc.longitude : null);
+  var o = f.owners && f.owners[0];
+  return {
+    id: f.id, key: a.key || '', slot: a.slot !== undefined && a.slot !== '' ? Number(a.slot) : null,
+    type: /^video\//.test(f.mimeType) ? 'video' : 'image', mime: f.mimeType, name: f.name,
+    takenAt: Number(a.takenAt) || Date.parse(f.createdTime) || 0, title: a.title || '', note: f.description || '',
+    lat: isFinite(lat) ? lat : null, lng: isFinite(lng) ? lng : null,
+    by: (o && o.displayName) || '', mine: !!(o && o.me), thumb: f.thumbnailLink || '', view: f.webViewLink || '', size: Number(f.size) || 0
+  };
+}
+function loadMedia(quiet) {
+  if (!signedIn() || loadingMedia) return;
+  loadingMedia = true;
+  var q = "'" + FOLDER + "' in parents and trashed=false and appProperties has { key='jj' and value='1' }";
+  var out = [];
+  function page(tok) {
+    var o = { q: q, fields: FIELDS, pageSize: 1000, supportsAllDrives: true, includeItemsFromAllDrives: true };
+    if (tok) o.pageToken = tok;
+    return gjson(API + '/files?' + qs(o)).then(function (r) { out = out.concat(r.files || []); return r.nextPageToken ? page(r.nextPageToken) : out; });
+  }
+  page().then(function (files) {
+    var next = files.map(toMedia).filter(function (m) { return m.key; });
+    var sig = function (l) { return l.map(function (m) { return m.id + m.title + m.note + m.thumb.length; }).join('|'); };
+    var changed = sig(next) !== sig(media);
+    media = next;
+    if (changed || !quiet) renderMain();
+  }).catch(function (e) { if (!quiet) toast(errText(e)); }).then(function () { loadingMedia = false; });
+}
+setInterval(function () { if (document.visibilityState === 'visible' && signedIn()) loadMedia(true); }, 45000);
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && signedIn()) loadMedia(true); });
+
+/* image and video sources */
+var BLOB = {};
+function thumbUrl(m, size) { return m.thumb ? m.thumb.replace(/=s\d+(-c)?$/, '=s' + size) : ''; }
+function fetchBlob(m) {
+  if (BLOB[m.id]) return Promise.resolve(BLOB[m.id]);
+  return gfetch(API + '/files/' + m.id + '?alt=media&supportsAllDrives=true').then(function (r) { return r.blob(); }).then(function (b) { BLOB[m.id] = { blob: b, url: URL.createObjectURL(b) }; return BLOB[m.id]; });
+}
+function imgTag(m, size, cls) {
+  var u = BLOB[m.id] && m.type === 'image' ? BLOB[m.id].url : thumbUrl(m, size);
+  return '<img' + (cls ? ' class="' + cls + '"' : '') + ' data-fid="' + esc(m.id) + '" src="' + esc(u) + '" alt="" loading="lazy" draggable="false" referrerpolicy="no-referrer">';
+}
+// thumbnail links expire or may be missing for brand-new files: fall back to the file itself
+document.addEventListener('error', function (e) {
+  var t = e.target;
+  if (!t || t.tagName !== 'IMG' || !t.getAttribute('data-fid') || t.getAttribute('data-tried')) return;
+  t.setAttribute('data-tried', '1');
+  var m = media.find(function (x) { return x.id === t.getAttribute('data-fid'); });
+  if (!m || m.type !== 'image') return;
+  fetchBlob(m).then(function (b) { t.src = b.url; }).catch(function () {});
+}, true);
+function ensureVideo(pageEl, m) {
+  var v = pageEl.querySelector('.front video');
+  if (!v) return;
+  function go(url) { if (!v.src) v.src = url; v.muted = true; v.loop = true; v.playsInline = true; var p = v.play(); if (p && p.catch) p.catch(function () {}); pageEl.classList.add('playing'); }
+  if (BLOB[m.id]) return go(BLOB[m.id].url);
+  if (m.size && m.size > 60 * 1024 * 1024) return;
+  fetchBlob(m).then(function (b) { if (pageEl.isConnected) go(b.url); }).catch(function () {});
+}
+
+/* ---------- live map on the page back ---------- */
+var LMAP = {}, here = null, geoWatch = null;
+function dirUrl(p, gk) {
+  var g = gk && GEO[gk];
+  return g ? 'https://www.google.com/maps/dir/?api=1&destination=' + g[0] + ',' + g[1] : mapsUrl(p[3]);
+}
+function startGeo() {
+  if (geoWatch !== null || !navigator.geolocation) return;
+  geoWatch = navigator.geolocation.watchPosition(function (pos) {
+    here = [pos.coords.latitude, pos.coords.longitude];
+    Object.keys(LMAP).forEach(function (id) { placeHere(LMAP[id]); });
+  }, function () {}, { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 });
+}
+function placeHere(entry) {
+  if (!here || !entry.map) return;
+  if (entry.dot) entry.dot.setLatLng(here);
+  else entry.dot = L.circleMarker(here, { radius: 7, color: '#fff', weight: 3, fillColor: '#2F6FE4', fillOpacity: 1 }).addTo(entry.map);
+}
+function initLiveMap(el) {
+  var box = el.querySelector('.lmap');
+  if (!box || !window.L) return;
+  var gk = box.getAttribute('data-geo'), g = GEO[gk];
+  if (!g) return;
+  if (LMAP[box.id]) { setTimeout(function () { LMAP[box.id].map.invalidateSize(); }, 600); startGeo(); return; }
+  var w = box.clientWidth || 300;
+  var z = Math.log2(156543.03 * Math.cos(g[0] * Math.PI / 180) * w / 1000);
+  var map = L.map(box, { zoomControl: false, attributionControl: true, dragging: false, touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, zoomSnap: 0 }).setView(g, z);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, className: 'washi-tiles', attribution: '© OpenStreetMap' }).addTo(map);
+  L.circleMarker(g, { radius: 9, color: '#fff', weight: 3, fillColor: '#C8402B', fillOpacity: 1 }).addTo(map);
+  LMAP[box.id] = { map: map, dot: null };
+  box.classList.add('live');
+  setTimeout(function () { map.invalidateSize(); }, 600);
+  placeHere(LMAP[box.id]);
+  startGeo();
+}
+
+/* ---------- sheet / upload ---------- */
+var pending = null;
+function openSheet(k, slot) {
+  if (!signedIn()) { toast('Sign in first to add photos.'); return; }
+  var parts = k.split('-'); var d = DAYS.find(function (x) { return x.short === parts[0]; }); var p = d.places[Number(parts[1])];
+  pending = { k: k, slot: slot };
+  $('sheet-sub').textContent = p[0] + ' · ' + d.date;
+  var idea = slot !== null && slot !== undefined ? p[2][slot] : '';
+  $('sheet-idea').textContent = idea ? 'Shot idea: ' + idea : '';
+  $('sheet-idea').hidden = !idea;
+  $('sheet').hidden = false;
+  var first = $('sheet').querySelector('.opt-btn'); if (first) first.focus();
+}
+function closeSheet() { $('sheet').hidden = true; }
+
+/* where a shot was taken: JPEG EXIF GPS or the phone's MP4 location tag */
+function readSlice(file, start, end) {
+  return new Promise(function (res) {
+    var r = new FileReader();
+    r.onload = function () { res(r.result); };
+    r.onerror = function () { res(null); };
+    r.readAsArrayBuffer(file.slice(Math.max(0, start), Math.min(file.size, end)));
+  });
+}
+function exifGps(buf) {
+  var v = new DataView(buf);
+  if (v.byteLength < 4 || v.getUint16(0) !== 0xFFD8) return null;
+  var off = 2;
+  while (off + 4 < v.byteLength) {
+    var marker = v.getUint16(off), len = v.getUint16(off + 2);
+    if (marker === 0xFFE1 && v.getUint32(off + 4) === 0x45786966) {
+      var t = off + 10, le = v.getUint16(t) === 0x4949;
+      var u16 = function (p) { return v.getUint16(p, le); }, u32 = function (p) { return v.getUint32(p, le); };
+      var ifd0 = t + u32(t + 4), n = u16(ifd0), gpsOff = 0, i;
+      for (i = 0; i < n; i++) { var e = ifd0 + 2 + i * 12; if (u16(e) === 0x8825) gpsOff = t + u32(e + 8); }
+      if (!gpsOff) return null;
+      var g = {}, gn = u16(gpsOff);
+      for (i = 0; i < gn; i++) {
+        var ge = gpsOff + 2 + i * 12, tag = u16(ge);
+        if (tag === 1 || tag === 3) g[tag] = String.fromCharCode(v.getUint8(ge + 8));
+        if (tag === 2 || tag === 4) { var vo = t + u32(ge + 8), parts = []; for (var k = 0; k < 3; k++) { var den = u32(vo + k * 8 + 4); parts.push(den ? u32(vo + k * 8) / den : 0); } g[tag] = parts[0] + parts[1] / 60 + parts[2] / 3600; }
+      }
+      if (typeof g[2] !== 'number' || typeof g[4] !== 'number' || (g[2] === 0 && g[4] === 0)) return null;
+      return { lat: g[1] === 'S' ? -g[2] : g[2], lng: g[3] === 'W' ? -g[4] : g[4] };
+    }
+    if ((marker & 0xFF00) !== 0xFF00) break;
+    off += 2 + len;
+  }
+  return null;
+}
+function mp4Gps(buf) {
+  if (!buf) return null;
+  var b = new Uint8Array(buf), s = '';
+  for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+  var at = s.indexOf('©xyz');
+  if (at < 0) return null;
+  var m = /([+-]\d{1,2}\.\d+)([+-]\d{1,3}\.\d+)/.exec(s.slice(at, at + 64));
+  return m ? { lat: parseFloat(m[1]), lng: parseFloat(m[2]) } : null;
+}
+function readGps(file) {
+  try {
+    if (/^image\/jpe?g$/.test(file.type)) return readSlice(file, 0, 256 * 1024).then(function (b) { return b ? exifGps(b) : null; }).catch(function () { return null; });
+    if (/^video\//.test(file.type)) {
+      var span = 2 * 1024 * 1024;
+      return readSlice(file, 0, span).then(function (b) { return mp4Gps(b) || readSlice(file, file.size - span, file.size).then(mp4Gps); }).catch(function () { return null; });
+    }
+  } catch (e) {}
+  return Promise.resolve(null);
+}
+
+
+function multipart(meta, blob) {
+  var bnd = 'jj' + Math.random().toString(36).slice(2);
+  var body = new Blob(['--' + bnd + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(meta) + '\r\n--' + bnd + '\r\nContent-Type: ' + (blob.type || 'application/octet-stream') + '\r\n\r\n', blob, '\r\n--' + bnd + '--']);
+  return gjson(UPAPI + '/files?uploadType=multipart&supportsAllDrives=true&fields=' + encodeURIComponent('id'), { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + bnd }, body: body });
+}
+function resumable(meta, blob, onProg) {
+  return gfetch(UPAPI + '/files?uploadType=resumable&supportsAllDrives=true&fields=id', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': blob.type || 'application/octet-stream', 'X-Upload-Content-Length': String(blob.size) },
+    body: JSON.stringify(meta)
+  }).then(function (r) {
+    var loc = r.headers.get('Location');
+    if (!loc) return multipart(meta, blob);
+    var CH = 8 * 1024 * 1024, off = 0;
+    function put(tries) {
+      var end = Math.min(off + CH, blob.size);
+      return fetch(loc, { method: 'PUT', headers: { 'Content-Range': 'bytes ' + off + '-' + (end - 1) + '/' + blob.size }, body: blob.slice(off, end) }).then(function (res) {
+        if (res.status === 308) {
+          var rg = res.headers.get('Range');
+          off = rg ? Number(rg.split('-')[1]) + 1 : end;
+          if (onProg) onProg(off / blob.size);
+          return put(0);
+        }
+        if (res.ok) { if (onProg) onProg(1); return res.json(); }
+        throw { code: 'http', status: res.status };
+      }, function (err) {
+        if (tries < 3) return new Promise(function (ok) { setTimeout(ok, 1500 * (tries + 1)); }).then(function () { return put(tries + 1); });
+        throw err;
+      });
+    }
+    return put(0);
+  });
+}
+function stamp(t) {
+  var d = new Date(t);
+  return d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '-' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') + String(d.getSeconds()).padStart(2, '0');
+}
+function uploadFiles(files) {
+  if (!pending) return;
+  if (!signedIn()) { toast('Sign in first to add photos.'); return; }
+  var ctx = pending; pending = null;
+  var list = Array.prototype.slice.call(files);
+  var i = 0, saved = 0;
+  function nextFile() {
+    if (i >= list.length) {
+      if (saved) { toast(saved === 1 ? 'Saved to the shared album' : saved + ' saved to the shared album'); ui.open[ctx.k] = true; loadMedia(); }
+      return;
+    }
+    var f = list[i++];
+    var isVideo = /^video\//.test(f.type);
+    var label = (isVideo ? 'video' : 'photo') + (list.length > 1 ? ' ' + i + ' of ' + list.length : '');
+    toast('Uploading ' + label + '…', true);
+    var now = Date.now();
+    var slot = (ctx.slot === null || ctx.slot === undefined || saved > 0) ? null : ctx.slot;
+    readGps(f).then(function (gps) {
+      var ext = ((f.name || '').split('.').pop() || (isVideo ? 'mp4' : 'jpg')).toLowerCase();
+      if (!/^[a-z0-9]{2,5}$/.test(ext)) ext = isVideo ? 'mp4' : 'jpg';
+      var props = { jj: '1', key: ctx.k, slot: slot === null ? '' : String(slot), takenAt: String(now) };
+      if (gps && isFinite(gps.lat) && isFinite(gps.lng)) { props.lat = gps.lat.toFixed(6); props.lng = gps.lng.toFixed(6); }
+      var who = auth.me && auth.me.name ? auth.me.name.split(' ')[0] : 'me';
+      var meta = { name: 'japan2026-' + ctx.k + '-' + stamp(now) + '-' + who + '.' + ext, parents: [FOLDER], mimeType: f.type || undefined, appProperties: props };
+      var prog = function (p) { toast('Uploading ' + label + '… ' + Math.round(p * 100) + '%', true); };
+      return (f.size > 5 * 1024 * 1024 ? resumable(meta, f, prog) : multipart(meta, f));
+    }).then(function (res) {
+      saved++;
+      if (res && res.id) {
+        BLOB[res.id] = { blob: f, url: URL.createObjectURL(f) };
+        media.push({ id: res.id, key: ctx.k, slot: slot, type: isVideo ? 'video' : 'image', mime: f.type, name: f.name, takenAt: now, title: '', note: '', lat: null, lng: null, by: auth.me ? auth.me.name : '', mine: true, thumb: '', view: '', size: f.size });
+        if (slot === null && list.length === 1) ui.edit = res.id;
+        var parts = ctx.k.split('-'); var d = DAYS.find(function (x) { return x.short === parts[0]; });
+        var pages = buildPages(d, Number(parts[1]));
+        var idx = pages.findIndex(function (pg) { return pg.kind === 'media' && pg.m.id === res.id; });
+        ui.focus[ctx.k] = Math.max(0, idx < 0 ? pages.length - 2 : idx); delete ui.flip[ctx.k];
+        renderMain();
+      }
+    }).catch(function (e) { toast(errText(e)); }).then(nextFile);
+  }
+  nextFile();
+}
+['in-photo', 'in-video', 'in-gallery'].forEach(function (id) {
+  $(id).addEventListener('change', function (e) {
+    var files = e.target.files;
+    if (files && files.length) uploadFiles(files);
+    e.target.value = '';
+  });
+});
+
+/* ---------- viewer ---------- */
+function placeOf(m) { var p = m.key.split('-'); var d = DAYS.find(function (x) { return x.short === p[0]; }); return d && d.places[Number(p[1])]; }
+function openLightbox(m, title) {
+  ui.lb = m; ui.delArm = false;
+  $('lb-title').textContent = title + (m.by ? '  ·  ' + m.by.split(' ')[0] : '');
+  var box = $('lb-media');
+  if (m.type === 'video') {
+    if (BLOB[m.id]) box.innerHTML = '<video src="' + esc(BLOB[m.id].url) + '" controls playsinline autoplay></video>';
+    else box.innerHTML = '<iframe class="lb-frame" src="https://drive.google.com/file/d/' + encodeURIComponent(m.id) + '/preview" allow="autoplay; fullscreen" title="' + esc(title) + '"></iframe>';
+  } else {
+    box.innerHTML = imgTag(m, 2048, '');
+  }
+  $('lb-delete').hidden = !m.mine;
+  $('lb-delete').classList.remove('armed');
+  var pl = placeOf(m);
+  var mq = (m.lat !== null && m.lng !== null) ? m.lat.toFixed(6) + ',' + m.lng.toFixed(6) : (pl && pl[3]);
+  $('lb-map').hidden = !mq;
+  if (mq) $('lb-map').href = mapsUrl(mq);
+  $('lb-share').hidden = !navigator.share;
+  $('lightbox').hidden = false;
+}
+function closeLightbox() { $('lightbox').hidden = true; $('lb-media').innerHTML = ''; ui.lb = null; }
+function saveBlob(blob, name) {
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+}
+function saveOne(m) {
+  toast('Downloading…', true);
+  fetchBlob(m).then(function (b) { saveBlob(b.blob, m.name || ('japan2026-' + m.key + (m.type === 'video' ? '.mp4' : '.jpg'))); toast('Saved to your phone'); }).catch(function (e) { toast(errText(e)); });
+}
+function shareOne(m) {
+  toast('Preparing…', true);
+  fetchBlob(m).then(function (b) {
+    var file = new File([b.blob], m.name || 'japan2026', { type: b.blob.type || m.mime });
+    $('toast').hidden = true;
+    if (navigator.canShare && navigator.canShare({ files: [file] })) return navigator.share({ files: [file], title: m.title || 'Japan 2026' });
+    return navigator.share({ title: m.title || 'Japan 2026', url: m.view });
+  }).catch(function (e) { if (e && e.name === 'AbortError') return; toast('Could not open sharing.'); });
+}
+function saveDay() {
+  var d = DAYS[ui.day];
+  var dm = media.filter(function (m) { return m.key.split('-')[0] === d.short; });
+  if (!dm.length) return;
+  if (!window.JSZip) { toast('The zip tool did not load. Try again.'); return; }
+  toast('Preparing ' + dm.length + ' files…', true);
+  var zip = new window.JSZip();
+  var n = 0;
+  Promise.all(dm.map(function (m) {
+    return fetchBlob(m).then(function (b) { zip.file(m.name || (m.id + (m.type === 'video' ? '.mp4' : '.jpg')), b.blob); n++; toast('Preparing ' + n + ' of ' + dm.length + '…', true); }).catch(function () {});
+  })).then(function () { return zip.generateAsync({ type: 'blob' }); }).then(function (blob) {
+    saveBlob(blob, 'japan2026-' + d.short + '.zip'); toast('Saved to your phone');
+  }).catch(function () { toast('Could not prepare the download.'); });
+}
+
+/* ---------- events ---------- */
+var drag = null, swallowClick = false;
+document.addEventListener('pointerdown', function (e) {
+  var st = e.target.closest && e.target.closest('.stage');
+  if (!st || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  drag = { k: st.getAttribute('data-k'), x: e.clientX, y: e.clientY, moved: false };
+});
+document.addEventListener('pointermove', function (e) {
+  if (!drag) return;
+  var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) drag.moved = true;
+});
+document.addEventListener('pointerup', function (e) {
+  if (!drag) return;
+  var dx = e.clientX - drag.x, k = drag.k, moved = drag.moved;
+  drag = null;
+  if (moved) {
+    swallowClick = true;
+    setTimeout(function () { swallowClick = false; }, 400);
+    if (Math.abs(dx) > 36) turnPage(k, dx < 0 ? 1 : -1);
+  }
+});
+document.addEventListener('pointercancel', function () { drag = null; });
+
+document.addEventListener('click', function (e) {
+  if (swallowClick && e.target.closest('.stage')) { swallowClick = false; e.preventDefault(); return; }
+  if (!$('lightbox').hidden && e.target.closest('#lightbox') && !e.target.closest('img, video, iframe, button, a')) { closeLightbox(); return; }
+  var el = e.target.closest('[data-act]');
+  if (!el) return;
+  var act = el.getAttribute('data-act');
+  var k = el.getAttribute('data-k');
+  if (act === 'signin') signIn();
+  else if (act === 'signout') signOut();
+  else if (act === 'day') { ui.day = Number(el.getAttribute('data-i')); renderAll(); window.scrollTo(0, 0); }
+  else if (act === 'todo-toggle') { ui.todoOpen = !ui.todoOpen; lsSet('jj-todo-open', ui.todoOpen ? '1' : '0'); renderMain(); }
+  else if (act === 'todo-rm') {
+    var dd = DAYS[ui.day];
+    data.custom[dd.short] = (data.custom[dd.short] || []).filter(function (c) { return c.id !== k; });
+    delete data.done[k]; saveState(); renderTabs(); renderMain();
+  }
+  else if (act === 'place') { ui.open[k] = !ui.open[k]; renderMain(); }
+  else if (act === 'page') {
+    var i = Number(el.getAttribute('data-i'));
+    if ((ui.focus[k] || 0) !== i) { ui.focus[k] = i; delete ui.flip[k]; ui.edit = null; layoutStage(k); return; }
+    var parts = k.split('-'); var d = DAYS.find(function (x) { return x.short === parts[0]; }); var p = d.places[Number(parts[1])];
+    var pg = buildPages(d, Number(parts[1]))[i];
+    if (pg.kind === 'add') openSheet(k, null);
+    else if (pg.kind === 'idea') { if (p[3]) { ui.flip[k] = i; layoutStage(k); } else openSheet(k, pg.slot); }
+    else openLightbox(pg.m, mediaTitle(pg));
+  }
+  else if (act === 'prev' || act === 'next') turnPage(k, act === 'next' ? 1 : -1);
+  else if (act === 'cap-edit') { ui.edit = el.getAttribute('data-id'); layoutStage(k); }
+  else if (act === 'cap-cancel') { ui.edit = null; layoutStage(k); }
+  else if (act === 'unflip') { delete ui.flip[k]; layoutStage(k); }
+  else if (act === 'shoot') { var s = el.getAttribute('data-slot'); openSheet(k, s === '' || s === 'null' ? null : Number(s)); }
+  else if (act === 'close-sheet') { closeSheet(); pending = null; }
+  else if (act === 'pick') { var inp = $(el.getAttribute('data-input')); closeSheet(); if (inp) inp.click(); }
+  else if (act === 'close-lb') closeLightbox();
+  else if (act === 'lb-save') { if (ui.lb) saveOne(ui.lb); }
+  else if (act === 'lb-share') { if (ui.lb) shareOne(ui.lb); }
+  else if (act === 'lb-delete') {
+    if (!ui.lb || !ui.lb.mine) return;
+    if (!ui.delArm) { ui.delArm = true; el.classList.add('armed'); el.setAttribute('aria-label', 'Tap again to delete'); toast('Tap the bin again to delete'); return; }
+    var m = ui.lb;
+    closeLightbox();
+    gfetch(API + '/files/' + m.id + '?supportsAllDrives=true', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) }).then(function () {
+      media = media.filter(function (x) { return x.id !== m.id; }); renderMain(); toast('Moved to your Drive bin');
+    }).catch(function (e2) { toast(errText(e2)); });
+  }
+  else if (act === 'save-day') saveDay();
+});
+
+document.addEventListener('change', function (e) {
+  var el = e.target;
+  if (el.getAttribute && el.getAttribute('data-act') === 'todo') {
+    var key = el.getAttribute('data-k');
+    if (el.checked) data.done[key] = true; else delete data.done[key];
+    saveState(); renderTabs(); renderMain();
+    var again = document.getElementById('todo-' + key); if (again) again.focus();
+  }
+});
+
+document.addEventListener('submit', function (e) {
+  if (e.target.classList && e.target.classList.contains('cap-form')) {
+    e.preventDefault();
+    var f = e.target, id = f.getAttribute('data-id');
+    var title = ($('cap-title').value || '').trim().slice(0, 60), note = ($('cap-note').value || '').trim().slice(0, 300);
+    var m = media.find(function (x) { return x.id === id; });
+    if (m) { m.title = title; m.note = note; }
+    ui.edit = null;
+    renderMain();
+    gfetch(API + '/files/' + id + '?supportsAllDrives=true', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: note, appProperties: { title: title.slice(0, 40) } }) })
+      .then(function () { toast('Caption saved'); }).catch(function (e2) { toast(errText(e2)); });
+    return;
+  }
+  if (e.target.id !== 'add-task') return;
+  e.preventDefault();
+  var input = $('new-task'); var text = (input.value || '').trim();
+  if (!text) return;
+  var d = DAYS[ui.day];
+  var cid = 'c' + Date.now().toString(36);
+  data.custom[d.short] = (data.custom[d.short] || []).concat([{ id: cid, text: text.slice(0, 140) }]);
+  saveState(); renderTabs(); renderMain();
+  var again = $('new-task'); if (again) again.focus();
+});
+
+document.addEventListener('keydown', function (e) {
+  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && document.activeElement) {
+    var st = document.activeElement.closest && document.activeElement.closest('.stage');
+    if (st) { e.preventDefault(); turnPage(st.getAttribute('data-k'), e.key === 'ArrowRight' ? 1 : -1); return; }
+  }
+  if (e.key !== 'Escape') return;
+  if (!$('lightbox').hidden) closeLightbox();
+  else if (!$('sheet').hidden) { closeSheet(); pending = null; }
+});
+
+/* ---------- boot ---------- */
+renderAll();
+if (signedIn()) onSignedIn();
+window.addEventListener('load', function () { initGis(); });
+})();
+
+</script>
+</body>
+</html>
