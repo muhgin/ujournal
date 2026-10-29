@@ -269,6 +269,14 @@ img { max-width: 100%; }
 .ro-row .ro-ic { flex: none; }
 .ro-row { gap: 6px; }
 .ro-row .ro-ic { width: 36px; height: 36px; }
+.stk { position: absolute; top: 8px; right: 8px; z-index: 6; display: flex; align-items: center; gap: 2px; background: rgba(27,27,31,.55); border-radius: 16px; padding: 2px; color: #fff; }
+.pg:not(.focus) .stk { display: none; }
+.stk-b { width: 32px; height: 32px; border-radius: 16px; border: none; background: transparent; color: #fff; display: grid; place-items: center; }
+.stk-b:disabled { opacity: .35; }
+.stk-n { font-size: 12px; font-weight: 700; padding: 0 2px; min-width: 34px; text-align: center; }
+.pg.stacked .front { box-shadow: 4px 4px 0 -1px #fff, 4px 4px 0 0 var(--hair), 8px 8px 0 -1px #fff, 8px 8px 0 0 var(--hair), 0 2px 10px rgba(27,27,31,.16); }
+.place-desc { font-size: 13.5px; line-height: 1.55; color: var(--ink-soft); margin: 0 0 12px; white-space: pre-line; }
+.addp textarea { border: 1px solid var(--hair); border-radius: 4px; padding: 10px 12px; font: inherit; font-size: 16px; background: #fff; resize: vertical; }
 </style>
 </head>
 <body>
@@ -643,7 +651,7 @@ var ICON = {
 };
 
 /* ---------- state ---------- */
-var ui = { day: 0, todoOpen: false, open: {}, focus: {}, flip: {}, edit: null, sheet: null, lb: null, delArm: false };
+var ui = { sub: {}, day: 0, todoOpen: false, open: {}, focus: {}, flip: {}, edit: null, sheet: null, lb: null, delArm: false };
 var data = { done: {}, custom: {} };
 var media = [];
 
@@ -730,14 +738,25 @@ function placeMedia(k) { return media.filter(function (m) { return m.key === k; 
 
 function buildPages(d, j) {
   var p = d.places[j], k = p.k;
-  var pm = placeMedia(k), used = {};
+  var pm = placeMedia(k);
   var pages = [];
+  function stackPage(ms, idea, slot, sid) {
+    var n = ms.length, cur = Math.max(0, Math.min(n - 1, ui.sub[sid] || 0));
+    return { kind: 'media', ms: ms, sub: cur, sid: sid, m: ms[cur], idea: idea, slot: slot, grp: ms[0].grp || '' };
+  }
   (p[2] || []).forEach(function (idea, i) {
-    var hit = pm.find(function (m) { return m.slot === i && !used[m.id]; });
-    if (hit) { used[hit.id] = 1; pages.push({ kind: 'media', m: hit, idea: idea, slot: i }); }
+    var ms = pm.filter(function (m) { return m.slot === i; });
+    if (ms.length) pages.push(stackPage(ms, idea, i, k + '|s' + i));
     else pages.push({ kind: 'idea', idea: idea, slot: i });
   });
-  pm.forEach(function (m) { if (!used[m.id]) pages.push({ kind: 'media', m: m, idea: null, slot: null }); });
+  var groups = [], byG = {};
+  pm.forEach(function (m) {
+    if (m.slot !== null && m.slot < (p[2] || []).length) return;
+    var g = m.grp || m.id;
+    if (!byG[g]) { byG[g] = []; groups.push(g); }
+    byG[g].push(m);
+  });
+  groups.forEach(function (g) { pages.push(stackPage(byG[g], null, null, k + '|g' + g)); });
   pages.push({ kind: 'add' });
   return pages;
 }
@@ -765,10 +784,10 @@ function renderPlace(d, j) {
     '<span class="count">' + (pm.length ? pm.length + (pm.length === 1 ? ' item' : ' items') : '') + '</span>' +
     '<span class="arrow">' + ICON.chev + '</span></button>';
   if (open) {
-    html += '<div class="panel"><div class="stage" id="stage-' + k + '" data-k="' + k + '" tabindex="0" role="group" aria-roledescription="flipbook" aria-label="' + esc(p[0]) + ' album. Swipe or use arrow keys to turn pages.">';
+    html += '<div class="panel">' + (p.desc ? '<p class="place-desc">' + esc(p.desc) + '</p>' : '') + '<div class="stage" id="stage-' + k + '" data-k="' + k + '" tabindex="0" role="group" aria-roledescription="flipbook" aria-label="' + esc(p[0]) + ' album. Swipe or use arrow keys to turn pages.">';
     pages.forEach(function (pg, i) {
       var spot = pg.slot !== null && pg.slot !== undefined && p[3];
-      html += '<div class="pg" data-i="' + i + '"><div class="pg-in">';
+      html += '<div class="pg' + (pg.ms && pg.ms.length > 1 ? ' stacked' : '') + '" data-i="' + i + '"><div class="pg-in">';
       var capHtml = '';
       var badge = '';
       if (pg.kind === 'idea') {
@@ -776,7 +795,10 @@ function renderPlace(d, j) {
       } else if (pg.kind === 'media') {
         html += '<button type="button" class="face front" data-act="page" data-k="' + k + '" data-i="' + i + '" aria-label="' + esc(mediaTitle(pg) + (pg.m.type === 'video' ? ', video' : ', photo')) + '"><span class="ph">' + badge +
           (pg.m.type === 'video' ? imgTag(pg.m, 900, 'poster') + '<video muted playsinline loop preload="none"></video><span class="play">' + ICON.play + '</span>' : imgTag(pg.m, 900, '')) + (pg.m.by ? '<span class="by">' + esc(pg.m.by.split(' ')[0]) + '</span>' : '') +
-          '</span>' + capHtml + '</button>';
+          '</span>' + capHtml + '</button>' +
+          '<div class="stk" data-sid="' + esc(pg.sid) + '">' +
+          (pg.ms.length > 1 ? '<button type="button" class="stk-b" data-act="sub" data-k="' + k + '" data-i="' + i + '" data-dir="-1"' + (pg.sub === 0 ? ' disabled' : '') + ' aria-label="Previous in this stack"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button><span class="stk-n">' + (pg.sub + 1) + ' / ' + pg.ms.length + '</span><button type="button" class="stk-b" data-act="sub" data-k="' + k + '" data-i="' + i + '" data-dir="1"' + (pg.sub === pg.ms.length - 1 ? ' disabled' : '') + ' aria-label="Next in this stack"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>' : '') +
+          '<button type="button" class="stk-b stk-add" data-act="stack-add" data-k="' + k + '" data-i="' + i + '" aria-label="Add more to this page"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button></div>';
       } else {
         html += '<button type="button" class="face front add" data-act="page" data-k="' + k + '" data-i="' + i + '" aria-label="Add a photo or video"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New page</button>';
       }
@@ -813,6 +835,7 @@ function layoutStage(k) {
     else if (a === 1) { t = 'translateX(' + sg * 66 + '%) scale(0.76) rotateY(' + -sg * 35 + 'deg)'; op = 0.8; z = 4; }
     else if (a === 2) { t = 'translateX(' + sg * 104 + '%) scale(0.6) rotateY(' + -sg * 45 + 'deg)'; op = 0.4; z = 3; }
     else { t = 'translateX(' + sg * 130 + '%) scale(0.5)'; op = 0; z = 1; }
+    el.classList.toggle('focus', a === 0 && !flipped);
     el.style.transform = t; el.style.opacity = op; el.style.zIndex = z; el.style.pointerEvents = a > 2 ? 'none' : '';
     var isF = a === 0 && flipped;
     el.classList.toggle('flipped', isF);
@@ -858,6 +881,7 @@ function layoutStage(k) {
     sub = pg.m.note || (pg.idea && !pg.m.title ? IDEA_NOTE[pg.idea] || '' : '') || (pg.m.type === 'video' ? 'Video' : 'Photo') + ' · tap the pencil to add a note';
     if (pg.m.mine) pen = '<button type="button" class="pen" data-act="cap-edit" data-k="' + k + '" data-id="' + esc(pg.m.id) + '" aria-label="Edit caption and note"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg></button>';
   }
+  if (pg.kind === 'media' && pg.ms.length > 1) title += '  ' + (pg.sub + 1) + '/' + pg.ms.length;
   if (pg.kind === 'media' && pg.m.by) sub = 'by ' + pg.m.by.split(' ')[0] + '  \u00b7  ' + sub;
   if (pg.kind === 'media' && member()) { var cn = CMT[pg.m.id] ? CMT[pg.m.id].list.length : 0; pen += '<button type="button" class="pen cmt-btn" data-act="cmt-open" data-k="' + k + '" data-id="' + esc(pg.m.id) + '" aria-label="Comment' + (cn ? ', ' + cn + ' so far' : '') + '"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>' + (cn ? '<i>' + cn + '</i>' : '') + '</button>'; }
   cap.innerHTML = '<span class="cap-t"><b>' + esc(title) + '</b>' + pen + '</span><span>' + esc(sub) + '</span>';
@@ -887,6 +911,7 @@ function renderMain() {
         html += '<li class="ro-row ro-editing" data-k="' + p.k + '"><form class="addp" id="editp" data-k="' + p.k + '"><b>Edit place</b>' +
           '<input id="editp-name" type="text" maxlength="60" required aria-label="Place name" value="' + esc(p[0]) + '">' +
           '<input id="editp-note" type="text" maxlength="40" aria-label="Time or note" placeholder="Time or note" value="' + esc(p[1]) + '">' +
+          '<textarea id="editp-desc" rows="3" maxlength="400" aria-label="Description" placeholder="Description: plans, tips, what to order">' + esc(p.desc || '') + '</textarea>' +
           '<input id="editp-q" type="text" maxlength="500" aria-label="Google Maps link or address" placeholder="New Google Maps link or address (blank keeps the map)" value="' + esc(mv) + '">' +
           '<div class="cap-btns"><button type="button" data-act="editp-cancel">Cancel</button><button type="submit">Save</button></div></form></li>';
         return;
@@ -910,6 +935,7 @@ function renderMain() {
       if (ui.addPlace) html += '<form class="addp" id="addp"><b>New place</b>' +
         '<input id="addp-name" type="text" maxlength="60" required placeholder="Name, e.g. Ichiran Shibuya" aria-label="Place name">' +
         '<input id="addp-note" type="text" maxlength="40" placeholder="Time or note, e.g. 19:00 dinner" aria-label="Time or note">' +
+        '<textarea id="addp-desc" rows="2" maxlength="400" placeholder="Description (optional)" aria-label="Description"></textarea>' +
         '<input id="addp-q" type="text" maxlength="500" placeholder="Google Maps link or address (optional)" aria-label="Google Maps link or address">' +
         '<div class="cap-btns"><button type="button" data-act="addp-cancel">Cancel</button><button type="submit">Add</button></div></form>';
       else html += '<button type="button" class="addp-btn" data-act="add-place"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add place</button>';
@@ -1059,7 +1085,7 @@ function toMedia(f) {
     type: /^video\//.test(f.mimeType) ? 'video' : 'image', mime: f.mimeType, name: f.name,
     takenAt: Number(a.takenAt) || Date.parse(f.createdTime) || 0, title: a.title || '', note: f.description || '',
     lat: isFinite(lat) ? lat : null, lng: isFinite(lng) ? lng : null,
-    by: (o && o.displayName) || '', mine: !!(o && o.me), thumb: f.thumbnailLink || '', view: f.webViewLink || '', size: Number(f.size) || 0
+    grp: a.grp || '', by: (o && o.displayName) || '', mine: !!(o && o.me), thumb: f.thumbnailLink || '', view: f.webViewLink || '', size: Number(f.size) || 0
   };
 }
 function loadMedia(quiet) {
@@ -1152,10 +1178,11 @@ function initLiveMap(el) {
 
 /* ---------- sheet / upload ---------- */
 var pending = null;
-function openSheet(k, slot) {
-  if (!signedIn()) { if (member()) afterAuth(function () { openSheet(k, slot); }); else toast('Sign in first to add photos.'); return; }
+function openSheet(k, slot, grp, adopt, again) {
+  if (!signedIn()) { if (member()) afterAuth(function () { openSheet(k, slot, grp, adopt, again); }); else toast('Sign in first to add photos.'); return; }
   var parts = k.split('-'); var d = DAYS.find(function (x) { return x.short === parts[0]; }); var p = d.places[placeIdx(d, k)]; if (!p) return;
-  pending = { k: k, slot: slot };
+  pending = { k: k, slot: slot, grp: grp || null, adopt: adopt || null };
+  $('sheet-title').textContent = again ? 'Add another?' : (grp || adopt || (slot !== null && slot !== undefined && placeMedia(k).some(function (m) { return m.slot === slot; })) ? 'Add to this page' : 'Add to album');
   $('sheet-sub').textContent = p[0] + ' · ' + d.date;
   var idea = slot !== null && slot !== undefined ? p[2][slot] : '';
   $('sheet-idea').textContent = idea ? 'Shot idea: ' + idea : '';
@@ -1263,10 +1290,14 @@ function uploadFiles(files) {
   if (!signedIn()) { if (member()) { afterAuth(function () { uploadFiles(files); }); toast('Reconnecting to Google…'); } else toast('Sign in first to add photos.'); return; }
   var ctx = pending; pending = null;
   var list = Array.prototype.slice.call(files);
+  var fromCam = !!(files && files.fromCam);
+  if (ctx.slot === null || ctx.slot === undefined) { ctx.slot = null; if (!ctx.grp) ctx.grp = 'g' + Date.now().toString(36); }
+  if (ctx.adopt) { var am = media.find(function (x) { return x.id === ctx.adopt; }); if (am) { am.grp = ctx.grp; gfetch(API + '/files/' + am.id + '?supportsAllDrives=true', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ appProperties: { grp: ctx.grp } }) }).catch(function () {}); } ctx.adopt = null; }
   var i = 0, saved = 0;
   function nextFile() {
     if (i >= list.length) {
       if (saved) { toast(saved === 1 ? 'Saved to the shared album' : saved + ' saved to the shared album'); ui.open[ctx.k] = true; loadMedia(); }
+      if (saved && fromCam) setTimeout(function () { openSheet(ctx.k, ctx.slot, ctx.grp, null, true); }, 600);
       return;
     }
     var f = list[i++];
@@ -1274,11 +1305,12 @@ function uploadFiles(files) {
     var label = (isVideo ? 'video' : 'photo') + (list.length > 1 ? ' ' + i + ' of ' + list.length : '');
     toast('Uploading ' + label + '…', true);
     var now = Date.now();
-    var slot = (ctx.slot === null || ctx.slot === undefined || saved > 0) ? null : ctx.slot;
+    var slot = ctx.slot;
     readGps(f).then(function (gps) {
       var ext = ((f.name || '').split('.').pop() || (isVideo ? 'mp4' : 'jpg')).toLowerCase();
       if (!/^[a-z0-9]{2,5}$/.test(ext)) ext = isVideo ? 'mp4' : 'jpg';
       var props = { jj: '1', key: ctx.k, slot: slot === null ? '' : String(slot), takenAt: String(now) };
+      if (ctx.grp && slot === null) props.grp = ctx.grp;
       if (gps && isFinite(gps.lat) && isFinite(gps.lng)) { props.lat = gps.lat.toFixed(6); props.lng = gps.lng.toFixed(6); }
       var who = auth.me && auth.me.name ? auth.me.name.split(' ')[0] : 'me';
       var meta = { name: 'japan2026-' + ctx.k + '-' + stamp(now) + '-' + who + '.' + ext, parents: [FOLDER], mimeType: f.type || undefined, appProperties: props };
@@ -1288,11 +1320,12 @@ function uploadFiles(files) {
       saved++;
       if (res && res.id) {
         BLOB[res.id] = { blob: f, url: URL.createObjectURL(f) };
-        media.push({ id: res.id, key: ctx.k, slot: slot, type: isVideo ? 'video' : 'image', mime: f.type, name: f.name, takenAt: now, title: '', note: '', lat: null, lng: null, by: auth.me ? auth.me.name : '', mine: true, thumb: '', view: '', size: f.size });
+        media.push({ id: res.id, key: ctx.k, slot: slot, grp: slot === null ? ctx.grp : '', type: isVideo ? 'video' : 'image', mime: f.type, name: f.name, takenAt: now, title: '', note: '', lat: null, lng: null, by: auth.me ? auth.me.name : '', mine: true, thumb: '', view: '', size: f.size });
         if (slot === null && list.length === 1) ui.edit = res.id;
         var parts = ctx.k.split('-'); var d = DAYS.find(function (x) { return x.short === parts[0]; });
         var pages = buildPages(d, placeIdx(d, ctx.k));
-        var idx = pages.findIndex(function (pg) { return pg.kind === 'media' && pg.m.id === res.id; });
+        var idx = pages.findIndex(function (pg) { return pg.kind === 'media' && pg.ms.some(function (x) { return x.id === res.id; }); });
+        if (idx >= 0) ui.sub[pages[idx].sid] = pages[idx].ms.findIndex(function (x) { return x.id === res.id; });
         ui.focus[ctx.k] = Math.max(0, idx < 0 ? pages.length - 2 : idx); delete ui.flip[ctx.k];
         renderMain();
       }
@@ -1303,7 +1336,7 @@ function uploadFiles(files) {
 ['in-photo', 'in-video', 'in-gallery'].forEach(function (id) {
   $(id).addEventListener('change', function (e) {
     var files = e.target.files;
-    if (files && files.length) uploadFiles(files);
+    if (files && files.length) { if (id !== 'in-gallery') files = Object.assign(Array.prototype.slice.call(files), { fromCam: true }); uploadFiles(files); }
     e.target.value = '';
   });
 });
@@ -1418,6 +1451,16 @@ document.addEventListener('click', function (e) {
   else if (act === 'cap-edit') { ui.edit = el.getAttribute('data-id'); layoutStage(k); }
   else if (act === 'cap-cancel') { ui.edit = null; layoutStage(k); }
   else if (act === 'unflip') { delete ui.flip[k]; layoutStage(k); }
+  else if (act === 'sub') {
+    var pd = DAYS.find(function (x) { return x.short === k.split('-')[0]; });
+    var spg = buildPages(pd, placeIdx(pd, k))[Number(el.getAttribute('data-i'))];
+    if (spg && spg.ms) { ui.sub[spg.sid] = Math.max(0, Math.min(spg.ms.length - 1, spg.sub + Number(el.getAttribute('data-dir')))); ui.edit = null; ui.cmt = null; renderMain(); }
+  }
+  else if (act === 'stack-add') {
+    var ad = DAYS.find(function (x) { return x.short === k.split('-')[0]; });
+    var apg = buildPages(ad, placeIdx(ad, k))[Number(el.getAttribute('data-i'))];
+    if (apg) openSheet(k, apg.slot, apg.slot === null ? (apg.grp || null) : null, apg.slot === null && !apg.grp ? apg.ms[0].id : null);
+  }
   else if (act === 'shoot') { var s = el.getAttribute('data-slot'); openSheet(k, s === '' || s === 'null' ? null : Number(s)); }
   else if (act === 'close-sheet') { closeSheet(); pending = null; }
   else if (act === 'pick') { var inp = $(el.getAttribute('data-input')); closeSheet(); if (inp) inp.click(); }
@@ -1567,7 +1610,7 @@ function applyPlaces() {
     var c = PLC.days[d.short] || {};
     var all = d.base.concat((c.added || []).map(function (a) {
       var p = [a.name, a.note || '', CUSTOM_IDEAS, a.q || a.name];
-      p.k = a.k; p.custom = true; p.url = a.url || ''; p.by = a.by || '';
+      p.k = a.k; p.desc = a.desc || ''; p.custom = true; p.url = a.url || ''; p.by = a.by || '';
       if (a.lat != null) GEO[a.k] = [a.lat, a.lng];
       return p;
     }));
@@ -1577,6 +1620,7 @@ function applyPlaces() {
       var q = p.slice(); q.k = p.k; q.custom = p.custom; q.by = p.by; q.url = p.url; q.edit = e;
       if (e.name) q[0] = e.name;
       if (e.note != null) q[1] = e.note;
+      if (e.desc != null) q.desc = e.desc;
       if (e.map) {
         q.noStatic = true; q.url = '';
         if (e.lat != null) { q[4] = 'E-' + p.k; GEO[q[4]] = [e.lat, e.lng]; q[3] = q[3] || q[0]; }
@@ -1673,7 +1717,7 @@ document.addEventListener('submit', function (e) {
   e.preventDefault();
   var d = DAYS[ui.day], name = $('addp-name').value.trim(); if (!name) return;
   var raw = $('addp-q').value.trim(), g = parseLoc(raw);
-  var a = { k: d.short + '-c' + Date.now().toString(36), name: name, note: $('addp-note').value.trim(), by: (auth.me && auth.me.name) || '' };
+  var a = { k: d.short + '-c' + Date.now().toString(36), name: name, note: $('addp-note').value.trim(), desc: $('addp-desc').value.trim(), by: (auth.me && auth.me.name) || '' };
   if (g) { a.lat = g[0]; a.lng = g[1]; }
   if (/^https?:\/\//.test(raw)) a.url = raw; else if (raw && !g) a.q = raw;
   ui.addPlace = false;
@@ -1685,7 +1729,7 @@ document.addEventListener('submit', function (e) {
   e.preventDefault();
   var d = DAYS[ui.day], k = e.target.getAttribute('data-k'), name = $('editp-name').value.trim(); if (!name) return;
   var raw = $('editp-q').value.trim(), g = parseLoc(raw);
-  var ed = { name: name, note: $('editp-note').value.trim() };
+  var ed = { name: name, note: $('editp-note').value.trim(), desc: $('editp-desc').value.trim() };
   if (raw) { ed.map = 1; if (g) { ed.lat = g[0]; ed.lng = g[1]; } if (/^https?:\/\//.test(raw)) ed.url = raw; else if (!g) ed.q = raw; }
   ui.editPlace = null;
   changePlaces(function (b) { var c = dayCfg(b, d.short); (c.edits = c.edits || {})[k] = ed; });
@@ -1696,7 +1740,7 @@ document.addEventListener('submit', function (e) {
   var drag = null;
   document.addEventListener('pointerdown', function (e) {
     var g = e.target.closest('.grip'); if (!g) return;
-    var row = g.closest('.ro-row'); drag = { row: row, id: e.pointerId };
+    var row = g.closest('.ro-row'); if (!row) return; drag = { row: row, id: e.pointerId };
     row.classList.add('dragging'); try { g.setPointerCapture(e.pointerId); } catch (x) {}
     e.preventDefault();
   });
