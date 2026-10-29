@@ -851,7 +851,7 @@ function layoutStage(k) {
     if (pg.m.mine) pen = '<button type="button" class="pen" data-act="cap-edit" data-k="' + k + '" data-id="' + esc(pg.m.id) + '" aria-label="Edit caption and note"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg></button>';
   }
   if (pg.kind === 'media' && pg.m.by) sub = 'by ' + pg.m.by.split(' ')[0] + '  \u00b7  ' + sub;
-  if (pg.kind === 'media' && signedIn()) { var cn = CMT[pg.m.id] ? CMT[pg.m.id].list.length : 0; pen += '<button type="button" class="pen cmt-btn" data-act="cmt-open" data-k="' + k + '" data-id="' + esc(pg.m.id) + '" aria-label="Comment' + (cn ? ', ' + cn + ' so far' : '') + '"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>' + (cn ? '<i>' + cn + '</i>' : '') + '</button>'; }
+  if (pg.kind === 'media' && member()) { var cn = CMT[pg.m.id] ? CMT[pg.m.id].list.length : 0; pen += '<button type="button" class="pen cmt-btn" data-act="cmt-open" data-k="' + k + '" data-id="' + esc(pg.m.id) + '" aria-label="Comment' + (cn ? ', ' + cn + ' so far' : '') + '"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>' + (cn ? '<i>' + cn + '</i>' : '') + '</button>'; }
   cap.innerHTML = '<span class="cap-t"><b>' + esc(title) + '</b>' + pen + '</span><span>' + esc(sub) + '</span>';
 }
 
@@ -866,10 +866,10 @@ function renderMain() {
   var d = DAYS[ui.day];
   var dm = media.filter(function (m) { return m.key.split('-')[0] === d.short; });
   var html = '';
-  if (!signedIn()) html += '<section class="signin"><b>Shared album</b><span>Sign in with the Google account the Japan 2026 folder is shared with. Everyone\'s photos and videos show up here.</span><button type="button" class="signin-btn" data-act="signin">Sign in with Google</button></section>';
+  if (!member()) html += '<section class="signin"><b>Shared album</b><span>Sign in with the Google account the Japan 2026 folder is shared with. Everyone\'s photos and videos show up here.</span><button type="button" class="signin-btn" data-act="signin">Sign in with Google</button></section>';
   html += renderChecklist();
   html += '<section><div class="places-head"><h2>Places</h2>' +
-    (signedIn() ? '<button type="button" class="ro-btn" data-act="reorder">' + (ui.reorder ? 'Done' : 'Rearrange') + '</button>' : '') +
+    (member() ? '<button type="button" class="ro-btn" data-act="reorder">' + (ui.reorder ? 'Done' : 'Rearrange') + '</button>' : '') +
     (ui.reorder ? '' : dm.length ? '<button type="button" class="save-day" data-act="save-day">' + ICON.down + 'Save ' + dm.length + ' to phone</button>' : '<span class="count">' + (dm.length ? dm.length + ' saved' : '') + '</span>') + '</div>';
   if (ui.reorder) {
     html += '<ol class="ro-list" id="ro-list">';
@@ -883,7 +883,7 @@ function renderMain() {
     html += '</ol><p class="ro-hint">Drag the handle or use the arrows. Everyone sees the new order.</p>';
   } else {
     d.places.forEach(function (p, j) { html += renderPlace(d, j); });
-    if (signedIn()) {
+    if (member()) {
       if (ui.addPlace) html += '<form class="addp" id="addp"><b>New place</b>' +
         '<input id="addp-name" type="text" maxlength="60" required placeholder="Name, e.g. Ichiran Shibuya" aria-label="Place name">' +
         '<input id="addp-note" type="text" maxlength="40" placeholder="Time or note, e.g. 19:00 dinner" aria-label="Time or note">' +
@@ -893,7 +893,7 @@ function renderMain() {
     }
   }
   html += '</section>';
-  if (signedIn()) html += '<p class="who">Signed in' + (auth.me ? ' as ' + esc(auth.me.name || auth.me.email) : '') + '  \u00b7  <button type="button" class="link" data-act="signout">Sign out</button></p>';
+  if (member()) html += '<p class="who">Signed in' + (auth.me ? ' as ' + esc(auth.me.name || auth.me.email) : '') + '  \u00b7  <button type="button" class="link" data-act="signout">Sign out</button></p>';
   $('main').innerHTML = html;
   if (!ui.reorder) d.places.forEach(function (p) { if (ui.open[p.k]) layoutStage(p.k); });
 }
@@ -914,7 +914,8 @@ var FOLDER = '1ZbWwlAwhTkEtpRpwaBXqKW88cUCsy62u';
 var SCOPES = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.appdata';
 var API = 'https://www.googleapis.com/drive/v3';
 var UPAPI = 'https://www.googleapis.com/upload/drive/v3';
-var auth = { token: null, exp: 0, client: null, me: null };
+var auth = { token: null, exp: 0, client: null, me: null, after: [], renewing: false, renewFailed: false };
+(function () { try { var me = JSON.parse(localStorage.getItem('jj-me') || 'null'); if (me) auth.me = me; } catch (e) {} })();
 (function () {
   try {
     var s = JSON.parse(localStorage.getItem('jj-token') || 'null');
@@ -922,6 +923,15 @@ var auth = { token: null, exp: 0, client: null, me: null };
   } catch (e) {}
 })();
 function signedIn() { return !!auth.token && Date.now() < auth.exp - 30000; }
+function remembered() { return !!lsGet('jj-user'); }
+function member() { return signedIn() || (remembered() && !auth.renewFailed); }
+function afterAuth(fn) { if (signedIn()) fn(); else { auth.after.push(fn); renew(); } }
+function renew() {
+  if (signedIn() || auth.renewing || !remembered()) return;
+  if (!initGis()) return;
+  auth.renewing = true;
+  auth.client.requestAccessToken({ prompt: '', login_hint: lsGet('jj-email') || '' });
+}
 function initGis() {
   if (auth.client) return true;
   if (!window.google || !google.accounts || !google.accounts.oauth2) return false;
@@ -929,13 +939,16 @@ function initGis() {
     client_id: CLIENT_ID,
     scope: SCOPES,
     callback: function (r) {
-      if (!r || r.error) { toast('Sign-in did not finish. Tap Sign in to try again.'); return; }
-      auth.token = r.access_token;
+      var wasRenew = auth.renewing; auth.renewing = false;
+      if (!r || r.error) { auth.after = []; if (wasRenew) { auth.renewFailed = true; renderMain(); } toast('Sign-in did not finish. Tap Sign in to try again.'); return; }
+      auth.token = r.access_token; auth.renewFailed = false;
+      lsSet('jj-user', '1');
       auth.exp = Date.now() + (Number(r.expires_in) || 3600) * 1000;
       lsSet('jj-token', JSON.stringify({ token: auth.token, exp: auth.exp }));
       onSignedIn();
+      var q = auth.after; auth.after = []; q.forEach(function (fn) { try { fn(); } catch (e) {} });
     },
-    error_callback: function () { toast('Sign-in window was closed.'); }
+    error_callback: function () { var wasRenew = auth.renewing; auth.renewing = false; auth.after = []; if (wasRenew) { auth.renewFailed = true; renderMain(); toast('Tap Sign in to reconnect.'); } else toast('Sign-in window was closed.'); }
   });
   return true;
 }
@@ -946,7 +959,7 @@ function signIn() {
 }
 function signOut() {
   try { if (auth.token && window.google) google.accounts.oauth2.revoke(auth.token, function () {}); } catch (e) {}
-  auth.token = null; auth.exp = 0; auth.me = null; lsSet('jj-token', ''); media = [];
+  auth.token = null; auth.exp = 0; auth.me = null; lsSet('jj-token', ''); lsSet('jj-user', ''); lsSet('jj-me', ''); lsSet('jj-media', ''); media = [];
   renderAll();
 }
 function needAuth() { auth.token = null; lsSet('jj-token', ''); renderMain(); }
@@ -975,6 +988,7 @@ function onSignedIn() {
   gjson(API + '/about?' + qs({ fields: 'user(displayName,emailAddress)' })).then(function (r) {
     auth.me = { name: (r.user && r.user.displayName) || '', email: (r.user && r.user.emailAddress) || '' };
     if (auth.me.email) lsSet('jj-email', auth.me.email);
+    lsSet('jj-me', JSON.stringify(auth.me));
     renderMain();
   }).catch(function () {});
   loadChecklist();
@@ -1040,6 +1054,7 @@ function loadMedia(quiet) {
     var sig = function (l) { return l.map(function (m) { return m.id + m.title + m.note + m.thumb.length; }).join('|'); };
     var changed = sig(next) !== sig(media);
     media = next;
+    lsSet('jj-media', JSON.stringify(media));
     if (changed || !quiet) renderMain();
   }).catch(function (e) { if (!quiet) toast(errText(e)); }).then(function () { loadingMedia = false; });
 }
@@ -1115,7 +1130,7 @@ function initLiveMap(el) {
 /* ---------- sheet / upload ---------- */
 var pending = null;
 function openSheet(k, slot) {
-  if (!signedIn()) { toast('Sign in first to add photos.'); return; }
+  if (!signedIn()) { if (member()) afterAuth(function () { openSheet(k, slot); }); else toast('Sign in first to add photos.'); return; }
   var parts = k.split('-'); var d = DAYS.find(function (x) { return x.short === parts[0]; }); var p = d.places[placeIdx(d, k)]; if (!p) return;
   pending = { k: k, slot: slot };
   $('sheet-sub').textContent = p[0] + ' · ' + d.date;
@@ -1222,7 +1237,7 @@ function stamp(t) {
 }
 function uploadFiles(files) {
   if (!pending) return;
-  if (!signedIn()) { toast('Sign in first to add photos.'); return; }
+  if (!signedIn()) { if (member()) { afterAuth(function () { uploadFiles(files); }); toast('Reconnecting to Google…'); } else toast('Sign in first to add photos.'); return; }
   var ctx = pending; pending = null;
   var list = Array.prototype.slice.call(files);
   var i = 0, saved = 0;
@@ -1253,7 +1268,7 @@ function uploadFiles(files) {
         media.push({ id: res.id, key: ctx.k, slot: slot, type: isVideo ? 'video' : 'image', mime: f.type, name: f.name, takenAt: now, title: '', note: '', lat: null, lng: null, by: auth.me ? auth.me.name : '', mine: true, thumb: '', view: '', size: f.size });
         if (slot === null && list.length === 1) ui.edit = res.id;
         var parts = ctx.k.split('-'); var d = DAYS.find(function (x) { return x.short === parts[0]; });
-        var pages = buildPages(d, Number(parts[1]));
+        var pages = buildPages(d, placeIdx(d, ctx.k));
         var idx = pages.findIndex(function (pg) { return pg.kind === 'media' && pg.m.id === res.id; });
         ui.focus[ctx.k] = Math.max(0, idx < 0 ? pages.length - 2 : idx); delete ui.flip[ctx.k];
         renderMain();
@@ -1371,7 +1386,7 @@ document.addEventListener('click', function (e) {
     var i = Number(el.getAttribute('data-i'));
     if ((ui.focus[k] || 0) !== i) { ui.focus[k] = i; delete ui.flip[k]; ui.edit = null; layoutStage(k); return; }
     var parts = k.split('-'); var d = DAYS.find(function (x) { return x.short === parts[0]; }); var p = d.places[placeIdx(d, k)]; if (!p) return;
-    var pg = buildPages(d, Number(parts[1]))[i];
+    var pg = buildPages(d, placeIdx(d, k))[i];
     if (pg.kind === 'add') openSheet(k, null);
     else if (pg.kind === 'idea') { if (p[3]) { ui.flip[k] = i; layoutStage(k); } else openSheet(k, pg.slot); }
     else openLightbox(pg.m, mediaTitle(pg));
@@ -1457,13 +1472,13 @@ function loadComments(m, force) {
 }
 function paintComments(k, pg, focus) {
   document.querySelectorAll('.cmts').forEach(function (e) { if (!CUR || !pg || !pg.m || e.getAttribute('data-id') !== pg.m.id) e.remove(); });
-  var next = pg && pg.kind === 'media' && signedIn() ? { k: k, m: pg.m, i: focus } : null;
+  var next = pg && pg.kind === 'media' && member() ? { k: k, m: pg.m, i: focus } : null;
   var same = CUR && next && CUR.m.id === next.m.id;
   CUR = next;
   if (!CUR) { clearInterval(cmtTimer); cmtTimer = null; return; }
   if (!same || !document.querySelector('.cmts')) { clearInterval(cmtTimer); cmtTimer = null; if (CMT[pg.m.id]) drawComments(CMT[pg.m.id].list, true); }
   var m = pg.m;
-  loadComments(m).then(function (r) { if (r && r.list && (r.changed || !document.querySelector('.cmts'))) { drawComments(r.list, true); refreshCap(); } }).catch(function () {});
+  if (signedIn()) loadComments(m).then(function (r) { if (r && r.list && (r.changed || !document.querySelector('.cmts'))) { drawComments(r.list, true); refreshCap(); } }).catch(function () {});
 }
 function refreshCap() {
   if (!CUR) return;
@@ -1562,7 +1577,10 @@ function loadPlaces() {
 }
 function changePlaces(mut) {
   mut(PLC); applyPlaces(); lsSet('jj-places', JSON.stringify(PLC)); renderMain();
-  if (!signedIn()) return;
+  if (!signedIn()) { afterAuth(function () { syncPlaces(mut); }); return; }
+  syncPlaces(mut);
+}
+function syncPlaces(mut) {
   plcBusy = true;
   fetchPlaces().then(function (b) {
     mut(b); PLC = b;
@@ -1644,6 +1662,13 @@ document.addEventListener('submit', function (e) {
 })();
 setInterval(function () { if (document.visibilityState === 'visible' && signedIn() && !ui.reorder) loadPlaces(); }, 45000);
 
+document.addEventListener('click', function (e) {
+  if (signedIn() || !remembered() || auth.renewFailed) return;
+  var b = e.target.closest && e.target.closest('[data-act]');
+  if (b && (b.getAttribute('data-act') === 'signin' || b.getAttribute('data-act') === 'signout')) return;
+  renew();
+}, true);
+(function () { if (!remembered()) return; try { var c = JSON.parse(localStorage.getItem('jj-media') || 'null'); if (c && c.length) media = c; } catch (e) {} })();
 renderAll();
 if (signedIn()) onSignedIn();
 window.addEventListener('load', function () { initGis(); });
