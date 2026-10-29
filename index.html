@@ -264,6 +264,11 @@ img { max-width: 100%; }
 .ro-removed { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--hair); font-size: 13px; }
 .ro-removed b { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 4px; }
 .ro-gone { display: flex; align-items: center; justify-content: space-between; color: var(--ink-soft); }
+.ro-row.ro-editing { display: block; padding: 0; border-top: none; }
+.ro-row.ro-editing .addp { margin: 8px 0; }
+.ro-row .ro-ic { flex: none; }
+.ro-row { gap: 6px; }
+.ro-row .ro-ic { width: 36px; height: 36px; }
 </style>
 </head>
 <body>
@@ -777,7 +782,7 @@ function renderPlace(d, j) {
       }
       if (spot) {
         var gk = p[4] || k;
-        html += '<div class="face back"><a class="mini" href="' + esc(dirUrl(p, gk)) + '" target="_blank" rel="noopener" tabindex="-1" aria-label="Directions to ' + esc(p[0]) + ' in Google Maps">' + (GEO[gk] ? (p.custom ? '' : '<img src="maps/' + gk + '.jpg" alt="" class="mini-static">') + '<div class="lmap" id="lm-' + k + '-' + i + '" data-geo="' + gk + '"></div>' : genMap(p[0], 240, 200)) + '</a>' +
+        html += '<div class="face back"><a class="mini" href="' + esc(dirUrl(p, gk)) + '" target="_blank" rel="noopener" tabindex="-1" aria-label="Directions to ' + esc(p[0]) + ' in Google Maps">' + (GEO[gk] ? (p.custom || p.noStatic ? '' : '<img src="maps/' + gk + '.jpg" alt="" class="mini-static">') + '<div class="lmap" id="lm-' + k + '-' + i + '" data-geo="' + gk + '"></div>' : genMap(p[0], 240, 200)) + '</a>' +
           '<div class="back-txt"><b>' + esc(pg.idea) + '</b><span>' + esc(p[0]) + '</span></div>' +
           '<div class="back-row">' +
           '<button type="button" class="icon-btn" data-act="unflip" data-k="' + k + '" tabindex="-1" aria-label="Show the sketch">' + ICON.flip + '</button>' +
@@ -877,8 +882,18 @@ function renderMain() {
   if (ui.reorder) {
     html += '<ol class="ro-list" id="ro-list">';
     d.places.forEach(function (p, j) {
+      if (ui.editPlace === p.k) {
+        var e = p.edit || {}, mv = e.map ? (e.url || e.q || (e.lat != null ? e.lat + ', ' + e.lng : '')) : '';
+        html += '<li class="ro-row ro-editing" data-k="' + p.k + '"><form class="addp" id="editp" data-k="' + p.k + '"><b>Edit place</b>' +
+          '<input id="editp-name" type="text" maxlength="60" required aria-label="Place name" value="' + esc(p[0]) + '">' +
+          '<input id="editp-note" type="text" maxlength="40" aria-label="Time or note" placeholder="Time or note" value="' + esc(p[1]) + '">' +
+          '<input id="editp-q" type="text" maxlength="500" aria-label="Google Maps link or address" placeholder="New Google Maps link or address (blank keeps the map)" value="' + esc(mv) + '">' +
+          '<div class="cap-btns"><button type="button" data-act="editp-cancel">Cancel</button><button type="submit">Save</button></div></form></li>';
+        return;
+      }
       html += '<li class="ro-row" data-k="' + p.k + '"><span class="grip" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 8h14M5 12h14M5 16h14"/></svg></span>' +
         '<span class="ro-txt"><b>' + esc(p[0]) + '</b><span>' + esc(p[1]) + '</span></span>' +
+        '<button type="button" class="ro-ic" data-act="edit-place" data-k="' + p.k + '" aria-label="Edit ' + esc(p[0]) + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg></button>' +
         ('<button type="button" class="ro-ic" data-act="rm-place" data-k="' + p.k + '" aria-label="Remove ' + esc(p[0]) + '"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>') +
         '<button type="button" class="ro-ic" data-act="mv" data-dir="-1" data-k="' + p.k + '"' + (j === 0 ? ' disabled' : '') + ' aria-label="Move up">' + ICON.left.replace('<svg', '<svg style="transform:rotate(90deg)"') + '</button>' +
         '<button type="button" class="ro-ic" data-act="mv" data-dir="1" data-k="' + p.k + '"' + (j === d.places.length - 1 ? ' disabled' : '') + ' aria-label="Move down">' + ICON.left.replace('<svg', '<svg style="transform:rotate(-90deg)"') + '</button></li>';
@@ -1102,7 +1117,7 @@ function ensureVideo(pageEl, m) {
 var LMAP = {}, here = null, geoWatch = null;
 function dirUrl(p, gk) {
   var g = gk && GEO[gk];
-  if (p.url && !g) return p.url;
+  if (p.url && (!g || p.noStatic && p.edit && p.edit.url && p.edit.lat == null)) return p.url;
   return g ? 'https://www.google.com/maps/dir/?api=1&destination=' + g[0] + ',' + g[1] : mapsUrl(p[3]);
 }
 function startGeo() {
@@ -1556,6 +1571,20 @@ function applyPlaces() {
       if (a.lat != null) GEO[a.k] = [a.lat, a.lng];
       return p;
     }));
+    var ed = c.edits || {};
+    all = all.map(function (p) {
+      var e = ed[p.k]; if (!e) return p;
+      var q = p.slice(); q.k = p.k; q.custom = p.custom; q.by = p.by; q.url = p.url; q.edit = e;
+      if (e.name) q[0] = e.name;
+      if (e.note != null) q[1] = e.note;
+      if (e.map) {
+        q.noStatic = true; q.url = '';
+        if (e.lat != null) { q[4] = 'E-' + p.k; GEO[q[4]] = [e.lat, e.lng]; q[3] = q[3] || q[0]; }
+        else { q[4] = 'X-' + p.k; if (e.url) { q.url = e.url; q[3] = q[3] || q[0]; } else q[3] = e.q; }
+        if (e.url) q.url = e.url;
+      }
+      return q;
+    });
     var hid = c.hidden || [];
     d.hidden = all.filter(function (p) { return hid.indexOf(p.k) >= 0; });
     all = all.filter(function (p) { return hid.indexOf(p.k) < 0; });
@@ -1612,7 +1641,9 @@ function parseLoc(s) {
 document.addEventListener('click', function (e) {
   var b = e.target.closest('[data-act]'); if (!b) return;
   var act = b.getAttribute('data-act'), d = DAYS[ui.day];
-  if (act === 'reorder') { ui.reorder = !ui.reorder; ui.addPlace = false; renderMain(); }
+  if (act === 'reorder') { ui.reorder = !ui.reorder; ui.addPlace = false; ui.editPlace = null; renderMain(); }
+  else if (act === 'edit-place') { ui.editPlace = b.getAttribute('data-k'); renderMain(); var en = $('editp-name'); if (en) en.focus(); }
+  else if (act === 'editp-cancel') { ui.editPlace = null; renderMain(); }
   else if (act === 'add-place') { ui.addPlace = true; renderMain(); var n = $('addp-name'); if (n) n.focus(); }
   else if (act === 'addp-cancel') { ui.addPlace = false; renderMain(); }
   else if (act === 'mv') {
@@ -1648,6 +1679,17 @@ document.addEventListener('submit', function (e) {
   ui.addPlace = false;
   changePlaces(function (b) { var c = dayCfg(b, d.short); (c.added = c.added || []).push(a); if (c.order) c.order.push(a.k); });
   toast('Added ' + name);
+});
+document.addEventListener('submit', function (e) {
+  if (e.target.id !== 'editp') return;
+  e.preventDefault();
+  var d = DAYS[ui.day], k = e.target.getAttribute('data-k'), name = $('editp-name').value.trim(); if (!name) return;
+  var raw = $('editp-q').value.trim(), g = parseLoc(raw);
+  var ed = { name: name, note: $('editp-note').value.trim() };
+  if (raw) { ed.map = 1; if (g) { ed.lat = g[0]; ed.lng = g[1]; } if (/^https?:\/\//.test(raw)) ed.url = raw; else if (!g) ed.q = raw; }
+  ui.editPlace = null;
+  changePlaces(function (b) { var c = dayCfg(b, d.short); (c.edits = c.edits || {})[k] = ed; });
+  toast('Saved ' + name);
 });
 /* drag to reorder */
 (function () {
