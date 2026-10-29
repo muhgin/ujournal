@@ -306,6 +306,7 @@ img { max-width: 100%; }
 .lb-prev { left: 20px; }
 .lb-next { right: 20px; }
 @media (hover: hover) and (pointer: fine) { .lb-arrow { display: flex; } .lb-media { padding: 0 88px; } }
+#lb-delete { margin-right: 14px; }
 </style>
 </head>
 <body>
@@ -352,10 +353,10 @@ img { max-width: 100%; }
   <div class="lb-top">
     <div class="lb-tt"><b id="lb-title"></b><span id="lb-sub"></span></div>
     <div class="lb-icons">
+      <button type="button" class="lb-ic" data-act="lb-delete" id="lb-delete" aria-label="Delete"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>
       <a class="lb-ic" id="lb-map" href="#" target="_blank" rel="noopener" aria-label="Open where this was taken in Google Maps"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></a>
       <button type="button" class="lb-ic" data-act="lb-share" id="lb-share" aria-label="Share"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></svg></button>
       <button type="button" class="lb-ic" data-act="lb-save" id="lb-save" aria-label="Save to phone"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></button>
-      <button type="button" class="lb-ic" data-act="lb-delete" id="lb-delete" aria-label="Delete"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>
       <button type="button" class="lb-ic" data-act="close-lb" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
   </div>
@@ -1121,10 +1122,42 @@ function toMedia(f) {
     grp: a.grp || '', by: (o && o.displayName) || '', mine: !!(o && o.me), thumb: f.thumbnailLink || '', view: f.webViewLink || '', size: Number(f.size) || 0
   };
 }
+function deleteMedia(m) {
+  var at = LB.seq.findIndex(function (x) { return x.m.id === m.id; });
+  LEDGER.del[m.id] = Date.now(); delete LEDGER.add[m.id]; ledgerSave();
+  var backup = media.slice();
+  media = media.filter(function (x) { return x.id !== m.id; });
+  if (at >= 0) LB.seq.splice(at, 1);
+  if (!LB.seq.length) closeLightbox(); else { LB.i = Math.min(at < 0 ? LB.i : at, LB.seq.length - 1); showLb(0); }
+  renderMain();
+  toast('Deleting…', true);
+  var tries = 0;
+  (function go() {
+    gfetch(API + '/files/' + m.id + '?supportsAllDrives=true&fields=id,trashed', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) })
+      .then(function () { toast('Moved to your Drive bin'); })
+      .catch(function (e2) {
+        if (e2 && e2.status === 404) { toast('Already deleted'); return; }
+        if (++tries < 3 && !(e2 && e2.status === 403)) { setTimeout(go, 1200 * tries); return; }
+        delete LEDGER.del[m.id]; ledgerSave(); media = backup; renderMain();
+        toast(e2 && e2.status === 403 ? 'Only the person who added this can delete it.' : 'Couldn\u2019t delete. ' + errText(e2));
+      });
+  })();
+}
+/* uploads and deletes this device made recently, so the album stays right while Drive catches up */
+var LEDGER = { add: {}, del: {} };
+(function () { try { var l = JSON.parse(localStorage.getItem('jj-ledger') || 'null'); if (l && l.add && l.del) LEDGER = l; } catch (e) {} })();
+function ledgerSave() {
+  var now = Date.now();
+  Object.keys(LEDGER.add).forEach(function (id) { if (now - LEDGER.add[id].t > 6 * 3600000) delete LEDGER.add[id]; });
+  Object.keys(LEDGER.del).forEach(function (id) { if (now - LEDGER.del[id] > 3600000) delete LEDGER.del[id]; });
+  var copy = { add: {}, del: LEDGER.del };
+  Object.keys(LEDGER.add).forEach(function (id) { copy.add[id] = { t: LEDGER.add[id].t, m: LEDGER.add[id].m }; });
+  lsSet('jj-ledger', JSON.stringify(copy));
+}
 function loadMedia(quiet) {
   if (!signedIn() || loadingMedia) return;
   loadingMedia = true;
-  var q = "'" + FOLDER + "' in parents and trashed=false and appProperties has { key='jj' and value='1' }";
+  var q = "'" + FOLDER + "' in parents and trashed=false";
   var out = [];
   function page(tok) {
     var o = { q: q, fields: FIELDS, pageSize: 1000, supportsAllDrives: true, includeItemsFromAllDrives: true };
@@ -1132,12 +1165,25 @@ function loadMedia(quiet) {
     return gjson(API + '/files?' + qs(o)).then(function (r) { out = out.concat(r.files || []); return r.nextPageToken ? page(r.nextPageToken) : out; });
   }
   page().then(function (files) {
-    var next = files.map(toMedia).filter(function (m) { return m.key; });
+    var next = files.filter(function (f) { return f.appProperties && f.appProperties.jj === '1'; }).map(toMedia).filter(function (m) { return m.key && !LEDGER.del[m.id]; });
     var have = {}; next.forEach(function (m) { have[m.id] = m; });
-    media.forEach(function (m) {
-      if (!have[m.id] && m.mine && Date.now() - m.takenAt < 20 * 60000) next.push(m);
-      else if (have[m.id] && m.grp && !have[m.id].grp) have[m.id].grp = m.grp;
+    media.forEach(function (m) { if (have[m.id] && m.grp && !have[m.id].grp) have[m.id].grp = m.grp; });
+    Object.keys(LEDGER.add).forEach(function (id) {
+      var e = LEDGER.add[id];
+      if (have[id]) { delete LEDGER.add[id]; return; }
+      next.push(e.m);
+      if (Date.now() - e.t > 60000 && !e.checking) {
+        e.checking = true;
+        gjson(API + '/files/' + id + '?' + qs({ fields: 'id,trashed', supportsAllDrives: true })).then(function (r) {
+          e.checking = false;
+          if (r && r.trashed) { delete LEDGER.add[id]; ledgerSave(); media = media.filter(function (x) { return x.id !== id; }); renderMain(); }
+        }).catch(function (er) {
+          e.checking = false;
+          if (er && er.status === 404) { delete LEDGER.add[id]; ledgerSave(); media = media.filter(function (x) { return x.id !== id; }); renderMain(); }
+        });
+      }
     });
+    ledgerSave();
     var sig = function (l) { return l.map(function (m) { return m.id + m.title + m.note + m.thumb.length; }).join('|'); };
     var changed = sig(next) !== sig(media);
     media = next;
@@ -1334,7 +1380,8 @@ function uploadFiles(files) {
   var i = 0, saved = 0;
   function nextFile() {
     if (i >= list.length) {
-      if (saved) { toast(saved === 1 ? 'Saved to the shared album' : saved + ' saved to the shared album'); ui.open[ctx.k] = true; loadMedia(); }
+      if (saved) { toast((saved === 1 ? 'Saved to the shared album' : saved + ' saved to the shared album') + (saved < list.length ? ' (' + (list.length - saved) + ' failed)' : '')); ui.open[ctx.k] = true; setTimeout(function () { loadMedia(true); }, 1500); }
+      else toast('Upload failed. Check your connection and try again.');
       if (saved && fromCam) setTimeout(function () { openSheet(ctx.k, ctx.slot, ctx.grp, null, true); }, 600);
       return;
     }
@@ -1358,7 +1405,8 @@ function uploadFiles(files) {
       saved++;
       if (res && res.id) {
         BLOB[res.id] = { blob: f, url: URL.createObjectURL(f) };
-        media.push({ id: res.id, key: ctx.k, slot: slot, grp: slot === null ? ctx.grp : '', type: isVideo ? 'video' : 'image', mime: f.type, name: f.name, takenAt: now, title: '', note: '', lat: null, lng: null, by: auth.me ? auth.me.name : '', mine: true, thumb: '', view: '', size: f.size });
+        var nm = { id: res.id, key: ctx.k, slot: slot, grp: slot === null ? ctx.grp : '', type: isVideo ? 'video' : 'image', mime: f.type, name: f.name, takenAt: now, title: '', note: '', lat: null, lng: null, by: auth.me ? auth.me.name : '', mine: true, thumb: '', view: '', size: f.size };
+        media.push(nm); LEDGER.add[res.id] = { t: Date.now(), m: nm }; ledgerSave();
         if (slot === null && list.length === 1) ui.edit = res.id;
         var parts = ctx.k.split('-'); var d = DAYS.find(function (x) { return x.short === parts[0]; });
         var pages = buildPages(d, placeIdx(d, ctx.k));
@@ -1576,11 +1624,7 @@ document.addEventListener('click', function (e) {
   else if (act === 'lb-delete') {
     if (!ui.lb || !ui.lb.mine) return;
     if (!ui.delArm) { ui.delArm = true; el.classList.add('armed'); el.setAttribute('aria-label', 'Tap again to delete'); toast('Tap the bin again to delete'); return; }
-    var m = ui.lb;
-    closeLightbox();
-    gfetch(API + '/files/' + m.id + '?supportsAllDrives=true', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) }).then(function () {
-      media = media.filter(function (x) { return x.id !== m.id; }); renderMain(); toast('Moved to your Drive bin');
-    }).catch(function (e2) { toast(errText(e2)); });
+    deleteMedia(ui.lb);
   }
   else if (act === 'save-day') saveDay();
 });
@@ -1876,7 +1920,7 @@ document.addEventListener('click', function (e) {
   if (b && (b.getAttribute('data-act') === 'signin' || b.getAttribute('data-act') === 'signout')) return;
   renew();
 }, true);
-(function () { if (!remembered()) return; try { var c = JSON.parse(localStorage.getItem('jj-media') || 'null'); if (c && c.length) media = c; } catch (e) {} })();
+(function () { if (!remembered()) return; try { var c = JSON.parse(localStorage.getItem('jj-media') || 'null'); if (c && c.length) media = c.filter(function (m) { return !LEDGER.del[m.id]; }); } catch (e) {} })();
 renderAll();
 if (signedIn()) onSignedIn();
 window.addEventListener('load', function () { initGis(); });
