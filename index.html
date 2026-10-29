@@ -261,6 +261,9 @@ img { max-width: 100%; }
 .cmt-btn i { font-style: normal; font-size: 10px; font-weight: 700; margin-left: 2px; }
 .cmt-form { display: flex; flex-direction: column; gap: 6px; width: 100%; }
 .cmt-form input { min-height: 44px; border: 1px solid var(--hair); border-radius: 4px; padding: 0 12px; font-size: 16px; background: #fff; }
+.ro-removed { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--hair); font-size: 13px; }
+.ro-removed b { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 4px; }
+.ro-gone { display: flex; align-items: center; justify-content: space-between; color: var(--ink-soft); }
 </style>
 </head>
 <body>
@@ -869,18 +872,23 @@ function renderMain() {
   if (!member()) html += '<section class="signin"><b>Shared album</b><span>Sign in with the Google account the Japan 2026 folder is shared with. Everyone\'s photos and videos show up here.</span><button type="button" class="signin-btn" data-act="signin">Sign in with Google</button></section>';
   html += renderChecklist();
   html += '<section><div class="places-head"><h2>Places</h2>' +
-    (member() ? '<button type="button" class="ro-btn" data-act="reorder">' + (ui.reorder ? 'Done' : 'Rearrange') + '</button>' : '') +
+    (member() ? '<button type="button" class="ro-btn" data-act="reorder">' + (ui.reorder ? 'Done' : 'Edit') + '</button>' : '') +
     (ui.reorder ? '' : dm.length ? '<button type="button" class="save-day" data-act="save-day">' + ICON.down + 'Save ' + dm.length + ' to phone</button>' : '<span class="count">' + (dm.length ? dm.length + ' saved' : '') + '</span>') + '</div>';
   if (ui.reorder) {
     html += '<ol class="ro-list" id="ro-list">';
     d.places.forEach(function (p, j) {
       html += '<li class="ro-row" data-k="' + p.k + '"><span class="grip" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 8h14M5 12h14M5 16h14"/></svg></span>' +
         '<span class="ro-txt"><b>' + esc(p[0]) + '</b><span>' + esc(p[1]) + '</span></span>' +
-        (p.custom ? '<button type="button" class="ro-ic" data-act="rm-place" data-k="' + p.k + '" aria-label="Remove ' + esc(p[0]) + '"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>' : '') +
+        ('<button type="button" class="ro-ic" data-act="rm-place" data-k="' + p.k + '" aria-label="Remove ' + esc(p[0]) + '"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>') +
         '<button type="button" class="ro-ic" data-act="mv" data-dir="-1" data-k="' + p.k + '"' + (j === 0 ? ' disabled' : '') + ' aria-label="Move up">' + ICON.left.replace('<svg', '<svg style="transform:rotate(90deg)"') + '</button>' +
         '<button type="button" class="ro-ic" data-act="mv" data-dir="1" data-k="' + p.k + '"' + (j === d.places.length - 1 ? ' disabled' : '') + ' aria-label="Move down">' + ICON.left.replace('<svg', '<svg style="transform:rotate(-90deg)"') + '</button></li>';
     });
-    html += '</ol><p class="ro-hint">Drag the handle or use the arrows. Everyone sees the new order.</p>';
+    html += '</ol><p class="ro-hint">Drag the handle or use the arrows to reorder. The bin removes a place, and its photos stay in Drive. Everyone sees the changes.</p>';
+    if (d.hidden && d.hidden.length) {
+      html += '<div class="ro-removed"><b>Removed</b>';
+      d.hidden.forEach(function (p) { html += '<div class="ro-gone"><span>' + esc(p[0]) + '</span><button type="button" class="link" data-act="restore-place" data-k="' + p.k + '">Restore</button></div>'; });
+      html += '</div>';
+    }
   } else {
     d.places.forEach(function (p, j) { html += renderPlace(d, j); });
     if (member()) {
@@ -1548,6 +1556,9 @@ function applyPlaces() {
       if (a.lat != null) GEO[a.k] = [a.lat, a.lng];
       return p;
     }));
+    var hid = c.hidden || [];
+    d.hidden = all.filter(function (p) { return hid.indexOf(p.k) >= 0; });
+    all = all.filter(function (p) { return hid.indexOf(p.k) < 0; });
     var nat = {}; all.forEach(function (p, i) { nat[p.k] = i; });
     var ord = c.order || [];
     var rank = function (p) { var i = ord.indexOf(p.k); return i < 0 ? 1000 + nat[p.k] : i; };
@@ -1613,7 +1624,11 @@ document.addEventListener('click', function (e) {
     var k = b.getAttribute('data-k'), p = d.places[placeIdx(d, k)]; if (!p) return;
     var n2 = placeMedia(k).length;
     if (!confirmArm(b, n2 ? 'Remove? ' + n2 + ' photo' + (n2 > 1 ? 's stay' : ' stays') + ' in Drive' : 'Tap again to remove')) return;
-    changePlaces(function (x) { var c = dayCfg(x, d.short); c.added = (c.added || []).filter(function (a) { return a.k !== k; }); if (c.order) c.order = c.order.filter(function (o) { return o !== k; }); });
+    changePlaces(function (x) { var c = dayCfg(x, d.short); if (p.custom) { c.added = (c.added || []).filter(function (a) { return a.k !== k; }); if (c.order) c.order = c.order.filter(function (o) { return o !== k; }); } else { c.hidden = c.hidden || []; if (c.hidden.indexOf(k) < 0) c.hidden.push(k); } });
+    toast('Removed ' + p[0]);
+  } else if (act === 'restore-place') {
+    var rk = b.getAttribute('data-k');
+    changePlaces(function (x) { var c = dayCfg(x, d.short); c.hidden = (c.hidden || []).filter(function (h) { return h !== rk; }); });
   }
 });
 function confirmArm(b, msg) {
